@@ -85,6 +85,7 @@ Wrangler 与 Miniflare 使用配套版本，前后端 TypeScript 配置独立，
 
 ## 文档
 
+- [更新日志](CHANGELOG.md)
 - [本地实施计划与后续任务](docs/LOCAL-ROADMAP.md)
 - [品牌与视觉规范](docs/BRAND.md)
 - [本地验收记录](docs/VERIFICATION.md)

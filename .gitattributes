@@ -1,0 +1,24 @@
+# 统一行尾与文本处理，避免跨平台差异造成无意义改动
+* text=auto eol=lf
+
+# Windows 专用脚本保留 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# 二进制资源不做行尾转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.zip binary
+
+# 锁文件按生成物处理，减少合并冲突噪音
+pnpm-lock.yaml linguist-generated=true -diff
