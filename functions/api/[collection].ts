@@ -3,6 +3,8 @@ import { readJson, cacheControl, errorResponse, HttpError, type Env } from '../.
 const keys: Record<string, string> = {
   profile: 'site/profile.json', home: 'site/home.json', projects: 'projects/index.json',
   resume: 'resume/resume.json', resources: 'resources/index.json',
+  downloads: 'downloads/index.json', rankings: 'rankings/combined.json',
+  'epic-free': 'misc/epic-free.json', saying: 'misc/saying.json',
 };
 export const onRequestGet: PagesFunction<Env> = async ({ env, params }) => {
   try {

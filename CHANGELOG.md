@@ -4,11 +4,26 @@
 
 ## [未发布]
 
+### 新增
+
+- 发现页新增「资源下载」区块：内容仓库 `downloads/index.json` 清单 + 文件校验，`/media/<file>?download=1` 以附件下载。
+- 发现页新增「数据榜单」「热榜 · 前沿」「限时免费」区块：桌面表格 / 手机卡片双形态，标注来源与更新时间，空状态诚实展示；热榜支持平台 Tab 切换。
+- `/fun/answerbook` 答案之书实验：实时转发 UAPI（免费接口），失败给出提示；首页 status 行与页脚显示随机一言。
+- 聚合 Worker `workers/aggregator`：`Source` 适配器接口，抓取 GitHub Trending、UAPI 热榜 5 平台、Epic 限时免费、一言池，分别写入 `rankings/`、`misc/`，`0 */6 * * *` 与 `0 4 * * *` Cron，失败保留上次结果，按 4 QPS 限速。新增 `aggregator:dev` / `aggregator:deploy` 脚本。
+- 榜单解析与 UAPI 映射的离线测试（`tests/rankings.test.ts`、`tests/uapi.test.ts`）。
+- 热榜按 `HOTBOARD_LIMIT` 截断（默认 50），发现页默认展示 10 条并支持展开/收起。
+- 一言池跨天合并去重（`SAYING_POOL` 上限）并对 429 退避重试；发现页新增页内锚点导航，更新时间格式化为北京时间。
+- 新增 `/daily` 每日新闻日历：聚合 Worker 每日 09:00（北京）抓 `daily/news-image` 存入 `misc/daily-news/<date>.jpg`，月历可回看近 12 个月，超 365 天自动清理；新增 `/api/daily-news` 与 `/daily-image/[date]` 路由（后者已加入 `_routes.json`）。
+- 发现页改为粘性分栏 Tab（精选收藏 / 资源下载 / 数据榜单 / 热榜 · 前沿），同一时间只显示一块，默认「热榜 · 前沿」，支持 `#hash` 深链与方向键切换；各面板首次激活才拉取数据；数据榜单默认展示 10 条并可展开。
+- 「限时免费」（Epic）从发现页移至 `/daily` 每日新闻下方。
+- Cron 触发器合并为 2 个（`0 */6 * * *`、`0 1 * * *`），在 5 个上限内并为后续数据源留出空间。
+- 修正聚合数据归属：内容导入器不再上传或删除 `rankings/`、`misc/` 键（缺失时前端显示空状态），避免覆盖 Worker 写入的线上数据；GitHub Trending 抓取增加 12s 超时，避免单源卡住整批任务。
+
 ### 计划中
 
 - GSAP ScrollTrigger 与 Lenis 滚动增强。
-- 更多交互实验，外部数据聚合 Worker 与六小时 Cron。
-- 多源榜单归一化、RSS 聚合与扩展皮肤。
+- 更多交互实验与更多榜单数据源（Artificial Analysis / LMSYS / OpenRouter）。
+- RSS 聚合与扩展皮肤。
 
 ## [0.2.0] - 2026-10-10
 

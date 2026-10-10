@@ -3,7 +3,7 @@ import { resolve, relative, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Miniflare } from 'miniflare';
 import { z } from 'zod';
-import { parsePost, isPublished, profileSchema, homeSchema, projectsSchema, resourcesSchema, resumeSchema, type Post } from '../src/lib/content';
+import { parsePost, isPublished, profileSchema, homeSchema, projectsSchema, resourcesSchema, resumeSchema, downloadsSchema, type Post } from '../src/lib/content';
 
 export const root = fileURLToPath(new URL('../', import.meta.url));
 export const contentRoot = resolve(root, '../icaiming-content');
@@ -13,6 +13,8 @@ const r2Path = resolve(persist, 'v3/r2');
 
 export async function prepareContent() {
   const objects = new Map<string, string | Buffer>();
+  // Aggregator-managed keys (rankings/, misc/) are written by the Worker directly to R2
+  // and must never be seeded or pruned here, or they would clobber live data.
   const schemas = {
     'site/profile.json': profileSchema, 'site/home.json': homeSchema,
     'projects/index.json': projectsSchema, 'resources/index.json': resourcesSchema,
@@ -41,6 +43,11 @@ export async function prepareContent() {
     }
   }
   await assets(resolve(contentRoot, 'assets'));
+  const downloadsDir = resolve(contentRoot, 'downloads');
+  if (await stat(downloadsDir).then(() => true).catch(() => false)) await assets(downloadsDir);
+  const downloads = downloadsSchema.parse(JSON.parse(await readFile(resolve(contentRoot, 'downloads/index.json'), 'utf8')));
+  for (const item of downloads.items) if (!objects.has(item.file)) throw new Error(`下载文件不存在：${item.file}`);
+  objects.set('downloads/index.json', JSON.stringify(downloads));
   const resume = resumeSchema.parse(JSON.parse(String(objects.get('resume/resume.json'))));
   if (resume.pdf) {
     await stat(resolve(contentRoot, resume.pdf));
@@ -66,7 +73,13 @@ export async function syncContent() {
       await bucket.put(key, typeof body === 'string' ? body : new Uint8Array(body), { httpMetadata: { contentType: `${types[extname(key)] ?? 'application/octet-stream'}` } });
     }
     // Only remove objects previously managed by this local content importer.
-    for (const key of oldKeys) if (!objects.has(key)) await bucket.delete(key);
+    // Never touch aggregator-owned prefixes, even if a stale manifest listed them.
+    const protectedPrefixes = ['rankings/', 'misc/'];
+    for (const key of oldKeys) {
+      if (objects.has(key) || protectedPrefixes.some((prefix) => key.startsWith(prefix))) continue;
+      console.log(`[content] 清理旧对象 ${key}`);
+      await bucket.delete(key);
+    }
     await bucket.put('_local/manifest.json', JSON.stringify([...objects.keys()]));
     const index = String(objects.get('posts/index.json'));
     const indexPath = resolve(contentRoot, 'posts/index.json');

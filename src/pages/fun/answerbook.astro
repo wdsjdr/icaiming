@@ -1,0 +1,32 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+---
+<PageLayout title="答案之书" eyebrow="PLAY / ANSWER BOOK" english="Ask" description="写下一个问题，翻到随机的一页。未必有用，但值得看一眼。" section="fun">
+  <div class="answerbook">
+    <form class="answerbook-form" data-answerbook-form>
+      <label class="eyebrow" for="answerbook-q">你的问题</label>
+      <div class="answerbook-row">
+        <input id="answerbook-q" name="q" type="text" maxlength="100" autocomplete="off" placeholder="比如：今天会有好运气吗？" />
+        <button class="button" type="submit">翻开一页 <span>↗</span></button>
+      </div>
+      <p class="answerbook-status mono" data-answerbook-status aria-live="polite"></p>
+    </form>
+    <div class="answerbook-page"><span class="answerbook-mark mono">IC / ANSWER</span><p data-answerbook-answer class="answerbook-answer">写下问题，答案会出现在这里。</p></div>
+  </div>
+  <p class="lab-note mono">RANDOM ANSWERS. NO GUARANTEES.</p>
+</PageLayout>
+<style>
+  .answerbook { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
+  .answerbook-form label { display: block; margin-bottom: 14px; margin-top: 0; }
+  .answerbook-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .answerbook-row input { flex: 1; min-width: 200px; }
+  .answerbook-row .button { white-space: nowrap; }
+  .answerbook-status { margin: 14px 0 0; min-height: 18px; font-size: 11px; color: var(--muted); }
+  .answerbook-page { border: 1px solid var(--line); border-radius: var(--radius); background: var(--soft); padding: 34px; min-height: 240px; display: flex; flex-direction: column; justify-content: space-between; }
+  .answerbook-mark { font-size: 9px; letter-spacing: .12em; color: var(--muted); }
+  .answerbook-answer { font-family: var(--font-display); font-size: clamp(22px, 3vw, 34px); line-height: 1.5; margin: 24px 0 0; letter-spacing: -.01em; transition: opacity .3s; }
+  .answerbook-answer.is-thinking { opacity: .35; }
+  .answerbook-answer.is-revealed { color: var(--accent); }
+  .lab-note { margin: 40px 0 0; color: var(--muted); font-size: 10px; letter-spacing: .08em; }
+  @media(max-width: 750px) { .answerbook { grid-template-columns: 1fr; gap: 24px; } }
+</style>

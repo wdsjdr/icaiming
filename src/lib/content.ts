@@ -24,6 +24,55 @@ export const projectsSchema = z.object({ items: z.array(z.object({
 export const resourcesSchema = z.object({ items: z.array(z.object({
   title: z.string(), description: z.string(), category: z.string(), url: webLink, tags: z.array(z.string()),
 })) });
+const downloadPath = z.string().regex(/^(?:assets|downloads)\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/, '下载文件路径不合法');
+export const downloadsSchema = z.object({ items: z.array(z.object({
+  title: z.string().min(1), description: z.string().min(1), category: z.string().min(1),
+  file: downloadPath, size: z.string().optional(), updated: date.optional(), tags: z.array(z.string()).default([]),
+})) });
+export const rankingsSchema = z.object({
+  updatedAt: z.string().nullable().default(null),
+  weights: z.record(z.number()).default({}),
+  items: z.array(z.object({
+    rank: z.number().int().positive(), name: z.string().min(1), vendor: z.string().optional(),
+    score: z.number().min(0).max(1), raw: z.number().optional(),
+    sources: z.record(z.number().min(0).max(1)).default({}), url: webLink.optional(),
+    tags: z.array(z.string()).default([]),
+  })),
+});
+export const hotboardIndexSchema = z.object({
+  updatedAt: z.string().nullable().default(null),
+  platforms: z.array(z.object({
+    type: z.string().min(1), label: z.string().min(1),
+    updateAt: z.string().nullable().default(null), count: z.number().int().nonnegative().default(0),
+  })).default([]),
+});
+export const hotboardSchema = z.object({
+  type: z.string().min(1),
+  updateAt: z.string().nullable().default(null),
+  items: z.array(z.object({
+    index: z.number().int().positive(), title: z.string().min(1), hotValue: z.string().default(''),
+    url: webLink, cover: webLink.optional(),
+  })).default([]),
+});
+export const epicFreeSchema = z.object({
+  updatedAt: z.string().nullable().default(null),
+  items: z.array(z.object({
+    id: z.string().min(1), title: z.string().min(1), cover: webLink.optional(),
+    originalPrice: z.number().optional(), originalPriceDesc: z.string().default(''),
+    description: z.string().default(''), seller: z.string().default(''), isFreeNow: z.boolean().default(true),
+    freeStartAt: z.number().optional(), freeEndAt: z.number().optional(),
+    freeStart: z.string().optional(), freeEnd: z.string().optional(), link: webLink,
+  })).default([]),
+});
+export const sayingSchema = z.object({
+  updatedAt: z.string().nullable().default(null),
+  items: z.array(z.string().min(1)).default([]),
+});
+export const answerbookSchema = z.object({ question: z.string(), answer: z.string().min(1) });
+export const dailyNewsSchema = z.object({
+  updatedAt: z.string().nullable().default(null),
+  dates: z.array(date).default([]),
+});
 export const resumeSchema = z.object({
   name: z.string(), title: z.string(), summary: z.string(),
   skills: z.array(z.string()),
@@ -35,6 +84,14 @@ export type Profile = z.infer<typeof profileSchema>;
 export type Home = z.infer<typeof homeSchema>;
 export type Projects = z.infer<typeof projectsSchema>;
 export type Resources = z.infer<typeof resourcesSchema>;
+export type Downloads = z.infer<typeof downloadsSchema>;
+export type Rankings = z.infer<typeof rankingsSchema>;
+export type HotboardIndex = z.infer<typeof hotboardIndexSchema>;
+export type Hotboard = z.infer<typeof hotboardSchema>;
+export type EpicFree = z.infer<typeof epicFreeSchema>;
+export type Saying = z.infer<typeof sayingSchema>;
+export type Answerbook = z.infer<typeof answerbookSchema>;
+export type DailyNews = z.infer<typeof dailyNewsSchema>;
 export type Resume = z.infer<typeof resumeSchema>;
 
 export function parsePost(raw: string, slug: string) {

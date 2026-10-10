@@ -1,7 +1,7 @@
 import type { R2Bucket, Fetcher } from '@cloudflare/workers-types';
 import { isPublished, parsePost, slugPattern, type Post } from '../lib/content';
 
-export interface Env { CONTENT_BUCKET: R2Bucket; ASSETS: Fetcher; LOCAL_DEV?: string }
+export interface Env { CONTENT_BUCKET: R2Bucket; ASSETS: Fetcher; LOCAL_DEV?: string; UAPI_KEY?: string }
 export class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }

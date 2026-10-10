@@ -1,0 +1,20 @@
+name = "ic-aiming-aggregator"
+main = "src/index.ts"
+compatibility_date = "2025-10-11"
+
+[[r2_buckets]]
+binding = "CONTENT_BUCKET"
+bucket_name = "ic-aiming-content"
+
+# 2 of the 5 cron triggers allowed on the free plan.
+# 0 */6 * * *  → GitHub 趋势 + 热榜（UTC 每 6 小时）
+# 0 1 * * *    → 每日新闻（北京 09:00）+ Epic 限免 + 一言池
+[triggers]
+crons = ["0 */6 * * *", "0 1 * * *"]
+
+[vars]
+HOTBOARD_PLATFORMS = "bilibili:B站,weibo:微博,toutiao:头条,douyin:抖音,netease-music:网易云音乐"
+HOTBOARD_LIMIT = "50"
+SAYING_COUNT = "15"
+SAYING_POOL = "60"
+NEWS_RETENTION_DAYS = "365"

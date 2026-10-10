@@ -1,0 +1,56 @@
+---
+import PageLayout from '../layouts/PageLayout.astro';
+---
+<PageLayout title="每日新闻" eyebrow="05 / DAILY" english="Daily" description="一天一张新闻图。从今天开始归档，可以往前翻看近 12 个月。" section="daily">
+  <section class="daily" data-daily>
+    <div class="daily-viewer">
+      <div class="daily-viewer-head"><span class="eyebrow" data-daily-label>选择日期查看</span><a class="small-link" data-daily-link hidden>打开原图 ↗</a></div>
+      <div class="daily-frame" data-daily-frame><p class="muted">归档从今天开始，日历会随每日抓取逐步填满。</p></div>
+    </div>
+    <div class="daily-calendar">
+      <div class="calendar-head"><button class="icon-button" type="button" data-cal-prev aria-label="上一个月">‹</button><span class="calendar-title" data-cal-title>—</span><button class="icon-button" type="button" data-cal-next aria-label="下一个月">›</button></div>
+      <div class="calendar-week" aria-hidden="true"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+      <div class="calendar-grid" data-cal-grid aria-live="polite"></div>
+      <p class="calendar-note mono">NEWS IS NOT TRENDING. ONE IMAGE A DAY.</p>
+    </div>
+  </section>
+  <section class="daily-free">
+    <div class="section-label"><h2>限时免费<span class="small-en">FREE NOW</span></h2><span class="mono muted">EPIC / WEEKLY</span></div>
+    <div data-epic-free class="epic-grid" aria-live="polite"><p class="loading">正在读取免费游戏…</p></div>
+  </section>
+</PageLayout>
+<style>
+  .daily { display: grid; grid-template-columns: 1.35fr 1fr; gap: 44px; align-items: start; }
+  .daily-viewer-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 30px; }
+  .daily-viewer-head .small-link[hidden] { display: none; }
+  .daily-frame { margin-top: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--soft); min-height: 320px; display: grid; place-items: center; padding: 14px; }
+  .daily-frame p { max-width: 320px; text-align: center; font-size: 13px; line-height: 1.9; }
+  .daily-frame :global(.daily-image) { width: 100%; height: auto; display: block; border-radius: calc(var(--radius) - 4px); }
+  .daily-calendar { border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+  .calendar-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .calendar-title { font: 12px var(--font-mono); letter-spacing: .06em; }
+  .calendar-week, .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .calendar-week { margin-bottom: 6px; }
+  .calendar-week span { text-align: center; font: 10px var(--font-mono); color: var(--muted); }
+  .calendar-grid :global(.cal-blank) { aspect-ratio: 1; }
+  .calendar-grid :global(.cal-day) { aspect-ratio: 1; display: grid; place-items: center; border: 1px solid var(--line); border-radius: var(--radius); background: transparent; font: 12px var(--font-mono); color: var(--muted); min-height: 0; padding: 0; }
+  .calendar-grid :global(.cal-day.has) { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); cursor: pointer; }
+  .calendar-grid :global(.cal-day.has:hover) { border-color: var(--accent); color: var(--accent); }
+  .calendar-grid :global(.cal-day.is-selected) { background: var(--accent); color: var(--button-ink); border-color: var(--accent); }
+  .calendar-grid :global(.cal-day:disabled) { opacity: .38; cursor: default; }
+  .calendar-note { margin: 18px 0 0; color: var(--muted); font-size: 9px; letter-spacing: .08em; }
+  .daily-free { margin-top: 64px; padding-top: 44px; border-top: 1px solid var(--line); }
+  .small-en { font: 9px var(--font-mono); color: var(--muted); margin-left: 16px; letter-spacing: .07em; }
+  .epic-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .epic-grid :global(.epic-card) { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--surface); transition: transform .2s; }
+  .epic-grid :global(.epic-card:hover) { transform: translateY(-4px); border-color: var(--accent); }
+  .epic-grid :global(.epic-cover) { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
+  .epic-grid :global(.epic-body) { padding: 18px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .epic-grid :global(h3) { font-size: 16px; margin: 0; font-weight: 550; }
+  .epic-grid :global(.epic-meta) { display: flex; justify-content: space-between; gap: 10px; font: 10px var(--font-mono); }
+  .epic-grid :global(.epic-price) { color: var(--muted); text-decoration: line-through; }
+  .epic-grid :global(.epic-timer) { color: var(--accent); }
+  .epic-grid :global(.epic-desc) { color: var(--muted); font-size: 12px; line-height: 1.7; margin: 0; flex: 1; }
+  @media(max-width: 900px) { .daily { grid-template-columns: 1fr; gap: 28px; }.daily-viewer { order: 2; }.daily-calendar { order: 1; }.epic-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media(max-width: 600px) { .epic-grid { grid-template-columns: 1fr; }.small-en { display: none; } }
+</style>

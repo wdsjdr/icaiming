@@ -2,10 +2,46 @@
 import PageLayout from '../layouts/PageLayout.astro';
 ---
 <PageLayout title="发现好东西" eyebrow="02 / COLLECTION" english="Resources" description="工具、文档与灵感。让值得留下的东西，在下次需要时更容易找到。" section="resources">
-  <section data-resources><div class="search-row"><div class="filters" data-resource-filters aria-label="按资源分类筛选"></div><label class="search-field"><span class="eyebrow">检索收藏</span><input type="search" data-resource-search placeholder="工具名称、用途或标签…" aria-label="搜索资源" /></label></div><p data-resource-count class="eyebrow" aria-live="polite"></p><div data-resource-list class="resource-grid" aria-live="polite"><p class="loading">正在整理收藏…</p></div></section>
-  <aside class="source-note"><span class="mono">A NOTE ON SOURCES</span><p>当前展示手动整理的工具与参考链接。自动榜单与订阅聚合将在后续接入，并标明来源与更新时间。</p></aside>
+  <div class="resource-tabs" role="tablist" aria-label="发现页分栏" data-resource-tabs>
+    <button type="button" role="tab" id="tab-curated" data-panel="curated" aria-controls="curated" aria-selected="false" tabindex="-1">精选收藏</button>
+    <button type="button" role="tab" id="tab-downloads" data-panel="downloads" aria-controls="downloads" aria-selected="false" tabindex="-1">资源下载</button>
+    <button type="button" role="tab" id="tab-rankings" data-panel="rankings" aria-controls="rankings" aria-selected="false" tabindex="-1">数据榜单</button>
+    <button type="button" role="tab" id="tab-trending" data-panel="trending" aria-controls="trending" aria-selected="true" tabindex="0">热榜 · 前沿</button>
+  </div>
+  <div class="resource-panels" data-resource-panels>
+  <section id="curated" class="resource-block" role="tabpanel" data-panel="curated" aria-labelledby="tab-curated" data-resources hidden><div class="section-label"><h2>精选收藏<span class="small-en">CURATED LINKS</span></h2><span class="mono muted">TOOLS / DOCS</span></div><div class="search-row"><div class="filters" data-resource-filters aria-label="按资源分类筛选"></div><label class="search-field"><span class="eyebrow">检索收藏</span><input type="search" data-resource-search placeholder="工具名称、用途或标签…" aria-label="搜索资源" /></label></div><p data-resource-count class="eyebrow" aria-live="polite"></p><div data-resource-list class="resource-grid" aria-live="polite"><p class="loading">正在整理收藏…</p></div></section>
+  <section id="downloads" class="resource-block" role="tabpanel" data-panel="downloads" aria-labelledby="tab-downloads" hidden><div class="section-label"><h2>资源下载<span class="small-en">DOWNLOADS</span></h2><span class="mono muted">FILES / ASSETS</span></div><div data-download-list class="download-grid" aria-live="polite"><p class="loading">正在读取下载项…</p></div></section>
+  <section id="rankings" class="resource-block" role="tabpanel" data-panel="rankings" aria-labelledby="tab-rankings" hidden><div class="section-label"><h2>数据榜单<span class="small-en">RANKINGS</span></h2><span class="mono muted" data-rankings-updated>正在读取…</span></div><div data-rankings aria-live="polite"><p class="loading">正在读取榜单…</p></div><p class="ranking-note mono">综合多个来源归一化加权，仅供快速参考；数据由定时任务每 6 小时更新。</p></section>
+  <section id="trending" class="resource-block" role="tabpanel" data-panel="trending" aria-labelledby="tab-trending"><div class="section-label"><h2>热榜 · 前沿<span class="small-en">TRENDING</span></h2><span class="mono muted" data-hotboard-updated></span></div><div class="filters hotboard-tabs" data-hotboard-tabs aria-label="选择热榜平台"></div><div data-hotboard class="hotboard" aria-live="polite"><p class="loading">正在读取热榜…</p></div></section>
+  </div>
+  <aside class="source-note"><span class="mono">A NOTE ON SOURCES</span><p>精选收藏与下载为手动维护；榜单与热榜由定时抓取写入 R2（来源 GitHub / UAPI），均标注更新时间，抓取失败时保留上一次结果。限时免费游戏已移至「每日」页。</p></aside>
 </PageLayout>
 <style>
-  .resource-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }.resource-grid :global(.resource-card) { padding: 25px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); display: flex; flex-direction: column; gap: 14px; }.resource-grid :global(.resource-card:hover) { border-color: var(--accent); }.resource-grid :global(h2) { font-size: 20px; margin: 0; font-weight: 550; }.resource-grid :global(p) { color: var(--muted); font-size: 13px; flex: 1; }.resource-grid :global(.resource-domain) { font: 10px var(--font-mono); color: var(--muted); overflow-wrap: anywhere; }.source-note { margin-top: 60px; border-top: 1px solid var(--line); padding-top: 25px; color: var(--muted); }.source-note span { font-size: 10px; }.source-note p { max-width: 600px; margin-top: 12px; font-size: 13px; }
-  @media(max-width: 900px) { .resource-grid { grid-template-columns: repeat(2, 1fr); } }@media(max-width: 600px) { .resource-grid { grid-template-columns: 1fr; } }
+  .resource-tabs { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 40px; padding: 14px 0; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .resource-tabs button { font: 11px var(--font-mono); letter-spacing: .04em; padding: 7px 15px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: transparent; cursor: pointer; }
+  .resource-tabs button:hover { color: var(--accent); border-color: var(--accent); }
+  .resource-tabs button[aria-selected='true'] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .resource-block { margin-bottom: 60px; scroll-margin-top: calc(var(--resource-tabs-h, 84px) + 20px); }
+  .resource-block[hidden] { display: none; }
+  .resource-block:last-of-type { margin-bottom: 0; }
+  .small-en { font: 9px var(--font-mono); color: var(--muted); margin-left: 16px; letter-spacing: .07em; }
+  .resource-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }.resource-grid :global(.resource-card) { padding: 25px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); display: flex; flex-direction: column; gap: 14px; }.resource-grid :global(.resource-card:hover) { border-color: var(--accent); }.resource-grid :global(h2) { font-size: 20px; margin: 0; font-weight: 550; }.resource-grid :global(p) { color: var(--muted); font-size: 13px; flex: 1; }.resource-grid :global(.resource-domain) { font: 10px var(--font-mono); color: var(--muted); overflow-wrap: anywhere; }
+  .download-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }.download-grid :global(.download-card) { padding: 24px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); display: flex; flex-direction: column; gap: 12px; transition: transform .2s; }.download-grid :global(.download-card:hover) { transform: translateY(-4px); border-color: var(--accent); }.download-grid :global(h3) { font-size: 18px; margin: 4px 0 0; font-weight: 550; }.download-grid :global(p) { color: var(--muted); font-size: 13px; flex: 1; margin: 0; }.download-grid :global(.download-meta) { font: 10px var(--font-mono); color: var(--muted); letter-spacing: .05em; }
+  :global(.ranking-list) { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }:global(.ranking-row) { display: grid; grid-template-columns: 48px 1fr 180px; gap: 20px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--line); }:global(.ranking-rank) { font: 12px var(--font-mono); color: var(--accent); }:global(.ranking-main) { display: flex; flex-direction: column; gap: 9px; min-width: 0; }:global(.ranking-name) { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }:global(.ranking-name strong) { font-size: 17px; font-weight: 550; }:global(.ranking-vendor) { color: var(--muted); font-size: 12px; }:global(.ranking-score) { position: relative; display: flex; justify-content: flex-end; align-items: center; min-height: 26px; }:global(.ranking-bar) { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: 3px; background: var(--accent); border-radius: 999px; }:global(.ranking-value) { position: relative; font: 11px var(--font-mono); color: var(--muted); background: var(--bg); padding-left: 8px; }
+  .ranking-note { margin: 20px 0 0; color: var(--muted); font-size: 10px; letter-spacing: .04em; }
+  :global(.ranking-more) { margin-top: 18px; padding: 8px 16px; border-radius: var(--radius); background: transparent; font-size: 12px; color: var(--muted); }
+  :global(.ranking-more:hover) { color: var(--accent); border-color: var(--accent); }
+  .hotboard-tabs { margin-bottom: 20px; }
+  .hotboard { border-top: 1px solid var(--line); }
+  .hotboard :global(.hot-row) { display: grid; grid-template-columns: 40px 1fr auto; gap: 16px; align-items: baseline; padding: 13px 0; border-bottom: 1px solid var(--line); }
+  .hotboard :global(.hot-row:hover) { color: var(--accent); }
+  .hotboard :global(.hot-rank) { font: 11px var(--font-mono); color: var(--accent); }
+  .hotboard :global(.hot-title) { font-size: 14px; overflow: hidden; text-overflow: ellipsis; }
+  .hotboard :global(.hot-value) { font: 10px var(--font-mono); color: var(--muted); white-space: nowrap; }
+  .hotboard :global(.hot-more) { margin-top: 16px; padding: 8px 16px; border-radius: var(--radius); background: transparent; font-size: 12px; color: var(--muted); }
+  .hotboard :global(.hot-more:hover) { color: var(--accent); border-color: var(--accent); }
+  .source-note { margin-top: 60px; border-top: 1px solid var(--line); padding-top: 25px; color: var(--muted); }.source-note span { font-size: 10px; }.source-note p { max-width: 600px; margin-top: 12px; font-size: 13px; }
+  @media(max-width: 900px) { .resource-grid, .download-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media(max-width: 700px) { :global(.ranking-row) { grid-template-columns: 34px 1fr; gap: 10px 16px; }:global(.ranking-score) { grid-column: 2; }.hotboard :global(.hot-row) { grid-template-columns: 30px 1fr; }:global(.hot-value) { display: none; } }
+  @media(max-width: 600px) { .resource-grid, .download-grid { grid-template-columns: 1fr; }.small-en { display: none; } }
 </style>

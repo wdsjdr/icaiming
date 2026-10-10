@@ -79,9 +79,17 @@ icaiming-content/ → 校验 / 生成文章索引 → 本地 R2
 
 ## 5. 后续工作
 
-已完成首页原子到 Logo 开屏动画（可跳过、按需加载、会话内一次、低端设备 CSS 简版）。本地基础体验稳定后继续：GSAP ScrollTrigger/Lenis 渐进增强、更多互动实验、单源 Worker 聚合、六小时 Cron、RSS 聚合及有明确评分口径的综合榜单。每个数据源先确认可用接口与字段，再编写适配器。
+已完成首页原子到 Logo 开屏动画（可跳过、按需加载、会话内一次、低端设备 CSS 简版）。发现页现有「精选收藏 / 资源下载 / 数据榜单 / 热榜 · 前沿」四块（粘性分栏 Tab，默认热榜，首次激活才拉取）；Epic「限时免费」移至 `/daily` 每日新闻下方；好玩页新增 `/fun/answerbook` 答案之书，首页 status 行与页脚显示随机一言。
 
-部署安排在本地验收和用户确认之后：Cloudflare Pages、R2 桶、资源域名、内容独立同步。域名、正式简历/PDF、真实项目及完整个人介绍可逐步补充。
+聚合 Worker 合并为 `workers/aggregator`：GitHub Trending 榜单（归一化写入 `rankings/combined.json`）、UAPI 热榜 5 平台（`misc/hotboard/*`）、Epic 限时免费（`misc/epic-free.json`）、一言池（`misc/saying.json`）、每日新闻图（`misc/daily-news/<date>.jpg`）。免费计划最多 5 个 Cron 触发器，故用 **2 个**：`0 */6 * * *`（榜单 + 热榜）与 `0 1 * * *`=北京 09:00（每日新闻 + 限免 + 一言）。失败保留上一次结果，UAPI 调用按 4 QPS 限速间隔。每日新闻图按北京日期命名、幂等跳过、超 `NEWS_RETENTION_DAYS`（默认 365 天）自清理；答案之书为免费实时代理。离线测试见 `tests/rankings.test.ts`、`tests/uapi.test.ts`、`tests/daily-news.test.ts`。
+
+积分预算（访客每月 1500）：热榜 1 积分/次 × 5 平台 × 每 6h ≈ 600/月；Epic 限免 ≈ 30/月；每日新闻 ≈ 30/月（1/天）；一言与答案之书免费。共约 660/月，留足余量；如需 `UAPI_KEY` 可提升额度，经 `wrangler secret put UAPI_KEY` 注入。
+
+**数据归属**：`rankings/`、`misc/` 下的键由聚合 Worker 独占写；内容仓库与本地导入器都不包含、不上传、也不删除这些键（导入器另有保护名单），缺失时前端显示空状态，避免人工同步覆盖线上数据。
+
+本地基础体验稳定后继续：GSAP ScrollTrigger/Lenis 渐进增强、更多互动实验、更多榜单数据源（Artificial Analysis / LMSYS / OpenRouter）与 RSS 聚合。每个数据源先确认可用接口与字段，再按 `workers/aggregator/src/sources` 的接口编写适配器。
+
+部署安排在本地验收和用户确认之后：Cloudflare Pages、R2 桶 `icaiming-content`、资源域名、内容独立同步。域名、正式简历/PDF、真实项目及完整个人介绍可逐步补充。
 
 ## 6. 技能与质量原则
 

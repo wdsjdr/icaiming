@@ -1,6 +1,6 @@
 ---
 import BrandMark from '../ui/BrandMark.astro';
-const links = [{ href: '/blog', label: '记录', en: 'Journal' }, { href: '/resources', label: '发现', en: 'Resources' }, { href: '/fun', label: '好玩', en: 'Playground' }, { href: '/about', label: '关于', en: 'About' }];
+const links = [{ href: '/blog', label: '记录', en: 'Journal' }, { href: '/resources', label: '发现', en: 'Resources' }, { href: '/daily', label: '每日', en: 'Daily' }, { href: '/fun', label: '好玩', en: 'Playground' }, { href: '/about', label: '关于', en: 'About' }];
 const path = Astro.url.pathname.startsWith('/article-shell') ? '/blog' : Astro.url.pathname;
 ---
 <header class="site-header">

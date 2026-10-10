@@ -10,5 +10,5 @@
     "esModuleInterop": true,
     "noEmit": true
   },
-  "include": ["functions/**/*.ts", "src/server/**/*.ts", "src/lib/content.ts"]
+  "include": ["functions/**/*.ts", "src/server/**/*.ts", "src/lib/content.ts", "workers/**/*.ts"]
 }

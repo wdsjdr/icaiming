@@ -12,7 +12,9 @@
     "preview": "wrangler pages dev",
     "check": "astro check && tsc --noEmit -p tsconfig.workers.json",
     "test": "tsx --test tests/*.test.ts",
-    "test:local": "tsx scripts/verify-local.ts"
+    "test:local": "tsx scripts/verify-local.ts",
+    "aggregator:dev": "wrangler dev --config workers/aggregator/wrangler.toml",
+    "aggregator:deploy": "wrangler deploy --config workers/aggregator/wrangler.toml"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.4",
