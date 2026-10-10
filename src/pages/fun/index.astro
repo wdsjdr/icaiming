@@ -1,0 +1,11 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+---
+<PageLayout title="玩点不一样的" eyebrow="03 / PLAYGROUND" english="Play" description="一些不着急得出结论的尝试。移动一点参数，看看会发生什么。" section="fun">
+  <a class="experiment-link" href="/fun/focus"><div class="experiment-art" aria-hidden="true"><span>✳</span><i class="mono">01 / FOCUS STUDY</i></div><div class="experiment-copy"><p class="eyebrow">INTERACTIVE / SVG</p><h2>聚焦练习</h2><p>旋转、拉近，让轨道与几何标识重合。一个关于 IC Aiming 的轻量交互实验。</p><span class="button secondary">进入实验 ↗</span></div></a>
+  <p class="lab-note mono">SMALL EXPERIMENTS. OPEN POSSIBILITIES.</p>
+</PageLayout>
+<style>
+  .experiment-link { display: grid; grid-template-columns: 1.1fr 1fr; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }.experiment-art { background: var(--soft); min-height: 330px; display: grid; place-items: center; position: relative; }.experiment-art>span { font-size: 230px; line-height: 1; color: var(--accent); }.experiment-art>i { position: absolute; bottom: 20px; left: 22px; font-size: 10px; font-style: normal; color: var(--muted); }.experiment-copy { padding: 45px; align-self: center; }.experiment-copy h2 { font-size: 34px; font-weight: 500; }.experiment-copy p:not(.eyebrow) { color: var(--muted); font-size: 14px; line-height: 1.9; }.experiment-copy .button { margin-top: 16px; }.lab-note { margin: 40px 0 0; color: var(--muted); font-size: 10px; letter-spacing: .08em; }
+  @media(max-width: 700px) { .experiment-link { grid-template-columns: 1fr; }.experiment-art { min-height: 240px; }.experiment-art>span { font-size: 180px; }.experiment-copy { padding: 28px; } }
+</style>

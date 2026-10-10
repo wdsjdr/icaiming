@@ -1,0 +1,24 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import BrandMark from '../../components/ui/BrandMark.astro';
+---
+<PageLayout title="聚焦练习" eyebrow="EXPERIMENT 001 / FOCUS STUDY" english="Focus" description="调整轨道的角度和距离。没有标准答案，找到你喜欢的构图就好。" section="fun">
+  <div class="experiment"><div class="stage" data-focus-stage><div class="target-ring"></div><div class="orbit" data-focus-orbit></div><div class="orbit second" data-focus-orbit></div><div class="symbol"><BrandMark /></div><span class="mono stage-label">IC AIMING / FIELD STUDY</span></div><div class="controls"><p class="eyebrow">CONTROL PANEL</p><label>轨道角度 <output data-angle-value>32°</output><input aria-label="轨道角度" data-angle type="range" min="0" max="180" value="32" /></label><label>观察距离 <output data-scale-value>100%</output><input aria-label="观察距离" data-scale type="range" min="60" max="135" value="100" /></label><button class="button secondary" data-reset-focus>重置参数 ↺</button><p class="muted">支持键盘方向键。手动调整，不自动播放。</p><a class="small-link" href="/fun">← 回到好玩</a></div></div>
+</PageLayout>
+<script>
+  const angle = document.querySelector<HTMLInputElement>('[data-angle]')!;
+  const scale = document.querySelector<HTMLInputElement>('[data-scale]')!;
+  const stage = document.querySelector<HTMLElement>('[data-focus-stage]')!;
+  function update() {
+    stage.style.setProperty('--angle', `${angle.value}deg`);
+    stage.style.setProperty('--scale', `${Number(scale.value) / 100}`);
+    document.querySelector('[data-angle-value]')!.textContent = `${angle.value}°`;
+    document.querySelector('[data-scale-value]')!.textContent = `${scale.value}%`;
+  }
+  angle.addEventListener('input', update); scale.addEventListener('input', update);
+  document.querySelector('[data-reset-focus]')?.addEventListener('click', () => { angle.value = '32'; scale.value = '100'; update(); });
+</script>
+<style>
+  .experiment { display: grid; grid-template-columns: 1fr 290px; gap: 35px; }.stage { --angle: 32deg; --scale: 1; background: var(--soft); border: 1px solid var(--line); min-height: 440px; display: grid; place-items: center; position: relative; overflow: hidden; }.target-ring { width: 280px; height: 280px; border: 1px dashed var(--line); border-radius: 50%; position: absolute; }.orbit { width: 320px; height: 130px; border: 1px solid var(--accent); opacity: .65; border-radius: 50%; position: absolute; transform: rotate(var(--angle)) scale(var(--scale)); }.orbit.second { transform: rotate(calc(-1 * var(--angle))) scale(var(--scale)); }.symbol { width: 100px; color: var(--accent); }.stage-label { position: absolute; bottom: 20px; left: 20px; font-size: 9px; color: var(--muted); }.controls { padding-top: 22px; }.controls label { display: block; margin: 26px 0; font-size: 13px; }.controls output { float: right; color: var(--accent); font-family: var(--font-mono); }.controls input { display: block; width: 100%; padding: 0; background: transparent; accent-color: var(--accent); }.controls p.muted { font-size: 12px; margin-top: 22px; }
+  @media(max-width: 700px) { .experiment { grid-template-columns: 1fr; }.stage { min-height: 350px; }.orbit { width: 250px; height: 110px; }.controls { padding-top: 0; } }
+</style>

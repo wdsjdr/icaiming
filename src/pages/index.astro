@@ -1,0 +1,56 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import BrandMark from '../components/ui/BrandMark.astro';
+import IntroGate from '../components/animations/IntroGate.astro';
+import IntroOverlay from '../components/animations/IntroOverlay.astro';
+---
+<BaseLayout>
+  <IntroGate slot="head" />
+  <IntroOverlay slot="intro" />
+  <main id="main" class="shell">
+    <section class="hero">
+      <div class="hero-copy"><p class="eyebrow"><span class="status-dot"></span><span data-home-eyebrow>观察 / 记录 / 创造</span></p><h1>Stay cool.<br />See clearly.<br /><span>Keep aiming.</span></h1><div class="hero-caption"><span class="caption-line"></span><p data-home-intro>冷静观察，持续瞄准。<br />欢迎来到 IC Aiming 的个人空间。</p></div><div class="hero-links"><a class="button" href="/blog">开始阅读 <span>↗</span></a><a class="small-link" href="/about">认识一下 <span>→</span></a></div></div>
+      <div class="focus-art" aria-label="由 A、W 与 IC 组合而成的几何品牌标识">
+        <div class="art-top mono"><span>IC / FIELD OF VIEW</span><span>01—∞</span></div>
+        <div class="focus-grid"><span class="axis axis-h"></span><span class="axis axis-v"></span><div class="orbit-ring ring-outer"></div><div class="orbit-ring ring-inner"></div><div class="focus-symbol"><BrandMark /></div><span class="focus-point"></span><span class="corner corner-tl"></span><span class="corner corner-tr"></span><span class="corner corner-bl"></span><span class="corner corner-br"></span><span class="coordinate mono">X 052.0<br />Y 031.0</span><span class="axis-label mono">FOCUS / ON</span></div>
+        <div class="art-bottom"><span>ICE COLD.<br />I SEE.</span><span class="tiny-cross">+</span><span>AIMING<br />FOR SOMETHING.</span></div>
+      </div>
+    </section>
+    <div class="status-strip"><span><span class="status-dot"></span> <span data-home-status>正在搭建自己的数字空间</span></span><span class="mono">PERSONAL SPACE / EST. 2026</span></div>
+    <section class="section explore"><div class="section-label"><h2>在这里，随处逛逛<span class="small-en">EXPLORE</span></h2><span class="mono muted">01 — 03</span></div><div class="explore-grid">
+      <a class="explore-card journal" href="/blog"><div class="explore-top"><span class="mono">01 / JOURNAL</span><span>↗</span></div><div class="card-art paper-art" aria-hidden="true"><span>Notes<br />& thoughts.</span><i></i></div><h3>慢慢记录</h3><p>开发过程、零散想法，还有生活里的发现。</p></a>
+      <a class="explore-card resource" href="/resources"><div class="explore-top"><span class="mono">02 / COLLECTION</span><span>↗</span></div><div class="card-art collection-art" aria-hidden="true"><span>⌘</span><span>↗</span><span>＋</span><span>⌁</span></div><h3>发现好东西</h3><p>把用得顺手的工具和值得读的链接留下。</p></a>
+      <a class="explore-card lab" href="/fun"><div class="explore-top"><span class="mono">03 / PLAYGROUND</span><span>↗</span></div><div class="card-art lab-art" aria-hidden="true"><span>✳</span><i>TRY SOMETHING.</i></div><h3>玩点不一样的</h3><p>给好奇心一点空间，把想法变成小实验。</p></a>
+    </div></section>
+    <section class="section"><div class="section-label"><h2>最近写下的 <span class="small-en">LATEST NOTES</span></h2><a href="/blog">全部记录 ↗</a></div><div class="post-grid" data-latest-posts aria-live="polite"><p class="loading">正在读取文章…</p></div></section>
+    <section class="section project-section"><div><p class="eyebrow">WORK IN PROGRESS</p><h2>一点点，<br />做出来。</h2><p class="muted">正在投入时间的项目。<br />记录每个从想法到实现的过程。</p></div><div data-projects class="project-list" aria-live="polite"><p class="loading">正在读取项目…</p></div></section>
+    <section class="contact-band"><div><p class="eyebrow">LET'S CONNECT</p><h2>如果你也有个想法。</h2><p>欢迎交流，或者只是打声招呼。</p></div><a data-email-link class="button accent" href="/about#contact">写封邮件 <span>↗</span></a></section>
+  </main>
+</BaseLayout>
+<style>
+  .hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 60px; padding: 72px 0 62px; align-items: center; }.hero h1 { font-size: clamp(48px, 5.5vw, 76px); line-height: 1.09; letter-spacing: -.065em; font-weight: 550; margin: 25px 0 30px; }.hero h1>span { color: var(--accent); }.hero-caption { display: flex; gap: 18px; align-items: start; }.caption-line { width: 25px; flex-shrink: 0; border-top: 1px solid var(--accent); margin-top: 12px; }.hero-caption p { font-size: 14px; color: var(--muted); line-height: 1.9; max-width: 355px; }.hero-links { display: flex; align-items: center; gap: 28px; margin-top: 20px; }
+  .focus-art { background: var(--soft); padding: 22px; border: 1px solid color-mix(in srgb, var(--line) 60%, transparent); border-radius: var(--radius); position: relative; }
+  .art-top { display: flex; justify-content: space-between; font-size: 9px; letter-spacing: .05em; color: var(--muted); }
+  .focus-grid { position: relative; margin: 28px 0; aspect-ratio: 1.18; display: grid; place-items: center; background-image: radial-gradient(var(--line) .85px, transparent .85px); background-size: 14px 14px; }
+  .orbit-ring { position: absolute; border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent); border-radius: 50%; }
+  .ring-outer { width: 80%; aspect-ratio: 1; }
+  .ring-inner { width: 64%; aspect-ratio: 1; border-style: dashed; }
+  .focus-symbol { width: 42%; color: var(--accent); }
+  .axis { position: absolute; background: color-mix(in srgb, var(--accent) 15%, transparent); }
+  .axis-h { width: 100%; height: 1px; }
+  .axis-v { height: 100%; width: 1px; }
+  .focus-point { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; position: absolute; top: 15%; right: 25%; box-shadow: 0 0 0 6px var(--soft); }
+  .corner { width: 12px; height: 12px; border: solid var(--accent); position: absolute; }
+  .corner-tl { top: 0; left: 0; border-width: 1px 0 0 1px; }
+  .corner-tr { top: 0; right: 0; border-width: 1px 1px 0 0; }
+  .corner-bl { bottom: 0; left: 0; border-width: 0 0 1px 1px; }
+  .corner-br { bottom: 0; right: 0; border-width: 0 1px 1px 0; }
+  .coordinate { position: absolute; left: 10px; bottom: 16px; font-size: 8px; color: var(--muted); }
+  .axis-label { position: absolute; right: -12px; top: 48%; font-size: 8px; color: var(--muted); background: var(--soft); padding: 4px; }
+  .art-bottom { display: flex; justify-content: space-between; align-items: center; font: 9px/1.6 var(--font-mono); letter-spacing: .08em; color: var(--muted); }
+  .tiny-cross { font-size: 22px; }
+  .status-strip { border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 18px 0; color: var(--muted); font-size: 11px; }.status-strip .status-dot { margin-right: 9px; width: 4px; height: 4px; }.status-strip .mono { font-size: 9px; letter-spacing: .08em; }.explore { padding-top: 46px; }.small-en { font: 9px var(--font-mono); color: var(--muted); margin-left: 16px; letter-spacing: .07em; }.section-label>.mono { font-size: 10px; }.explore-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }.explore-card { padding: 22px; border: 1px solid var(--line); border-radius: var(--radius); transition: transform .2s; }.explore-card:hover { transform: translateY(-4px); }.explore-top { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 11px; }.explore-top .mono { font-size: 9px; letter-spacing: .06em; }.explore-card h3 { font-size: 19px; font-weight: 550; margin: 0 0 10px; }.explore-card p { font-size: 12px; color: var(--muted); margin: 0; }.card-art { height: 140px; position: relative; display: flex; align-items: center; justify-content: center; margin: 12px 0; }.journal { background: color-mix(in srgb, var(--surface) 65%, #b2a888 8%); }.paper-art span { font: italic 30px/1.15 var(--font-display); transform: rotate(-8deg); z-index: 1; }.paper-art i { width: 120px; height: 95px; background: color-mix(in srgb, var(--surface) 50%, transparent); position: absolute; border: 1px solid var(--line); transform: rotate(8deg); }.collection-art { gap: 6px; }.collection-art span { border: 1px solid var(--line); background: var(--surface); padding: 6px 15px; font-size: 24px; transform: rotate(-8deg); }.collection-art span:nth-child(2n) { transform: translateY(13px) rotate(9deg); }.lab { background: var(--soft); }.lab-art span { font-size: 110px; line-height: 1; color: var(--accent); }.lab-art i { position: absolute; font: 8px var(--font-mono); right: 0; bottom: 12px; color: var(--muted); }
+  .project-section { display: grid; grid-template-columns: 1fr 1.5fr; gap: 60px; }.project-section h2 { font-size: 39px; font-weight: 500; letter-spacing: -.04em; line-height: 1.4; }.project-section>div>p.muted { font-size: 13px; }.project-list :global(.project-item) { padding: 24px 0; display: grid; gap: 12px; border-bottom: 1px solid var(--line); }.project-list :global(h3) { font-size: 22px; margin: 0; }.project-list :global(p) { color: var(--muted); font-size: 13px; }.project-list :global(.project-status) { font: 10px var(--font-mono); color: var(--accent); }.contact-band { margin: 20px 0 70px; padding: 40px; border: 1px solid var(--line); background: var(--soft); display: flex; justify-content: space-between; align-items: center; gap: 24px; border-radius: var(--radius); }.contact-band h2 { font-size: 28px; font-weight: 500; }.contact-band p:last-child { margin: 0; color: var(--muted); font-size: 13px; }
+  @media(max-width: 900px) { .hero { gap: 30px; padding-top: 55px; }.hero h1 { font-size: 52px; }.small-en { display: none; }.explore-card { padding: 18px; }.collection-art span { padding: 4px 10px; } }
+  @media(max-width: 700px) { .hero { grid-template-columns: 1fr; padding-top: 40px; gap: 35px; }.hero h1 { font-size: clamp(46px, 10vw, 66px); }.focus-art { max-width: 480px; width: 100%; margin-inline: auto; }.focus-grid { aspect-ratio: 1.4; }.status-strip>.mono { display: none; }.explore-grid { grid-template-columns: 1fr; }.explore-card { display: grid; grid-template-columns: 1fr 120px; gap: 12px; }.explore-top { grid-column: 1/-1; }.card-art { grid-column: 2; grid-row: 2/4; height: 100px; margin: 0; }.explore-card h3 { align-self: end; margin: 0; }.explore-card p { grid-column: 1; }.collection-art { gap: 2px; }.collection-art span { padding: 3px 5px; font-size: 20px; }.lab-art span { font-size: 80px; }.lab-art i { display: none; }.project-section { grid-template-columns: 1fr; gap: 10px; }.project-section h2 br { display: none; }.contact-band { padding: 28px; flex-direction: column; align-items: start; }.contact-band h2 { font-size: 25px; } }
+</style>

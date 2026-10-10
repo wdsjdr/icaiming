@@ -1,0 +1,8 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import '../styles/prose.css';
+---
+<BaseLayout title="文章 — IC Aiming" section="blog" noindex>
+  <div class="reading-track" aria-hidden="true"><span data-reading-progress></span></div>
+  <main id="main" class="shell article-page"><a href="/blog" class="small-link">← 返回记录</a><header class="article-head"><p class="eyebrow" data-article-meta>JOURNAL</p><h1 data-article-title>文章</h1><p data-article-description></p><div class="tags" data-article-tags></div></header><div class="article-grid"><article class="prose" data-article-body></article><aside class="article-aside"><p class="eyebrow">ON THIS PAGE</p><nav aria-label="文章目录" data-article-toc></nav><a class="small-link" href="#top">回到顶部 ↑</a></aside></div><div class="article-end"><span class="mono">THANKS FOR READING.</span><a href="/blog" class="small-link">继续读一篇 ↗</a></div></main>
+</BaseLayout>

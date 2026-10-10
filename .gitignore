@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.astro/
+.env
+.env.*
+.dev.vars*
+.wrangler/
+.playwright-cli/
+test-results/
+*.log

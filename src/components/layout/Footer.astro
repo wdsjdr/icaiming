@@ -1,0 +1,8 @@
+---
+import BrandMark from '../ui/BrandMark.astro';
+---
+<footer class="site-footer"><div class="shell footer-top"><div><a href="/" class="footer-brand"><BrandMark variant="compact" /><span>IC <b>Aiming</b></span></a><p>Stay cool. See clearly. Keep aiming.</p></div><div data-social-links class="social-links" aria-label="社交账号"><a href="/about#contact">联系方式 ↗</a></div></div><div class="shell footer-bottom"><span>© {new Date().getFullYear()} IC Aiming</span><span class="footer-note">一个持续生长的个人空间</span><div><a href="/rss.xml">RSS ↗</a><a href="#top">返回顶部 ↑</a></div></div></footer>
+<style>
+  .site-footer { border-top: 1px solid var(--line); padding: 42px 0 20px; margin-top: 20px; }.footer-top { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-bottom: 35px; }.footer-brand { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 450; letter-spacing: -.04em; }.footer-brand b { font-weight: 650; }.footer-brand :global(svg) { width: 28px; height: 28px; }.footer-top p { color: var(--muted); font: 10px var(--font-mono); margin: 12px 0 0; }.footer-bottom { display: flex; justify-content: space-between; gap: 14px; border-top: 1px solid var(--line); padding-top: 20px; color: var(--muted); font: 10px var(--font-mono); }.footer-bottom>div { display: flex; gap: 22px; }.footer-bottom a { min-height: 44px; display: inline-flex; align-items: flex-start; }
+  @media(max-width: 760px) { .footer-top { align-items: flex-start; flex-direction: column; }.footer-note { display: none; } }
+</style>

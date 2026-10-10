@@ -1,0 +1,46 @@
+---
+import '../styles/global.css';
+import Header from '../components/layout/Header.astro';
+import Footer from '../components/layout/Footer.astro';
+interface Props { title?: string; description?: string; section?: string; noindex?: boolean }
+const { title = 'IC Aiming — 冷静观察，持续瞄准', description = 'IC Aiming 的个人空间：记录、资源与有趣的实验。', section = 'home', noindex = false } = Astro.props;
+---
+<!doctype html>
+<html lang="zh-CN" data-theme="default" data-mode="light" data-section={section} data-motion="on">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#f4f7f7" />
+    <meta property="og:site_name" content="IC Aiming" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    {noindex && <meta name="robots" content="noindex" />}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate" type="application/rss+xml" title="IC Aiming · 记录" href="/rss.xml" />
+    <title>{title}</title>
+    <script is:inline>
+      (() => {
+        let theme = 'default', mode = 'system', motion = 'on';
+        try { theme = localStorage.getItem('theme') || theme; mode = localStorage.getItem('colorMode') || mode; motion = localStorage.getItem('motion') || motion; } catch {}
+        const q = new URLSearchParams(location.search);
+        theme = q.get('theme') || theme; mode = q.get('mode') || mode;
+        const root = document.documentElement;
+        root.dataset.theme = ['default', 'terminal', 'newspaper'].includes(theme) ? theme : 'default';
+        root.dataset.mode = ['light', 'dark'].includes(mode) ? mode : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        root.dataset.motion = motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'off' : 'on';
+      })();
+    </script>
+    <slot name="head" />
+  </head>
+  <body id="top">
+    <slot name="intro" />
+    <a class="skip-link" href="#main">跳到主要内容</a>
+    <Header />
+    <slot />
+    <Footer />
+    <noscript><p class="shell">文章正文可直接阅读；列表检索、外观设置等交互需要 JavaScript。可使用 <a href="/rss.xml">RSS</a> 浏览已发布文章。</p></noscript>
+    <script>import '../lib/theme'; import '../lib/client';</script>
+  </body>
+</html>

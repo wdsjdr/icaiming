@@ -1,0 +1,2 @@
+:root[data-theme='newspaper'] { --font-body: 'Iowan Old Style', 'Noto Serif CJK SC', 'Songti SC', 'SimSun', Georgia, serif; --font-display: var(--font-body); --radius: 0px; --bg: #f4f0e5; --surface: #fcf9f0; --ink: #332f2a; --muted: #746b60; --line: #d0c8b9; --accent: #874335; --button-ink: #fff; --soft: #e7dfcf; }
+:root[data-theme='newspaper'][data-mode='dark'] { --bg: #201e1b; --surface: #2c2823; --ink: #e5dbc8; --muted: #b7ab95; --line: #514739; --accent: #e2aa8b; --button-ink: #201e1b; --soft: #393129; }

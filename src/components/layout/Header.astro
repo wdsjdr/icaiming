@@ -1,0 +1,30 @@
+---
+import BrandMark from '../ui/BrandMark.astro';
+const links = [{ href: '/blog', label: '记录', en: 'Journal' }, { href: '/resources', label: '发现', en: 'Resources' }, { href: '/fun', label: '好玩', en: 'Playground' }, { href: '/about', label: '关于', en: 'About' }];
+const path = Astro.url.pathname.startsWith('/article-shell') ? '/blog' : Astro.url.pathname;
+---
+<header class="site-header">
+  <div class="shell header-inner">
+    <a href="/" class="brand" aria-label="IC Aiming 首页"><BrandMark class="brand-symbol" variant="compact" /><span>IC <b>Aiming</b></span></a>
+    <nav class="desktop-nav" aria-label="主导航">{links.map((link) => <a href={link.href} aria-current={path.startsWith(link.href) ? 'page' : undefined}><span>{link.label}</span><small>{link.en}</small></a>)}</nav>
+    <div class="actions">
+      <button class="icon-button" data-theme-toggle aria-label="切换色彩模式"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.5" /><path d="M12 5a7 7 0 0 1 0 14Z" fill="currentColor" /></svg></button>
+      <details class="settings"><summary aria-label="外观设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--bg)"/><circle cx="15" cy="17" r="3" fill="var(--bg)"/></svg></summary><div class="settings-panel"><p class="eyebrow">MAKE IT YOURS</p><label>色彩模式<select data-mode-select><option value="system">跟随系统</option><option value="light">亮色</option><option value="dark">暗色</option></select></label><label>外观皮肤<select data-skin-select><option value="default">IC · 分区默认</option><option value="terminal">Terminal · 终端</option><option value="newspaper">Newspaper · 报刊</option></select></label><label class="motion-label"><input type="checkbox" data-motion-toggle checked /> 开启动画</label><small class="muted">系统减少动画设置始终优先。</small></div></details>
+      <button class="icon-button menu-toggle" data-menu-toggle aria-label="主导航菜单" aria-expanded="false" aria-controls="mobile-nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 8h16M4 16h16"/></svg></button>
+    </div>
+  </div>
+  <nav id="mobile-nav" class="mobile-nav shell" data-mobile-nav aria-label="移动端导航">{links.map((link) => <a href={link.href} aria-current={path.startsWith(link.href) ? 'page' : undefined}>{link.label}<span>{link.en} ↗</span></a>)}</nav>
+</header>
+<style>
+  .site-header { border-bottom: 1px solid var(--line); position: relative; z-index: 10; }
+  .header-inner { display: flex; align-items: center; justify-content: space-between; min-height: 86px; gap: 24px; }
+  .brand { display: flex; align-items: center; gap: 12px; white-space: nowrap; font-size: 21px; letter-spacing: -.04em; font-weight: 450; }
+  .brand :global(svg) { width: 34px; height: 34px; }.brand b { font-weight: 650; }
+  .desktop-nav { display: flex; align-items: center; gap: 34px; }.desktop-nav a { display: flex; align-items: center; gap: 7px; min-height: 44px; font-size: 13px; }.desktop-nav small { font-size: 10px; color: var(--muted); }
+  a[aria-current='page'] { color: var(--accent); }.desktop-nav a[aria-current='page'] span { border-bottom: 1px solid var(--accent); }
+  .actions { display: flex; align-items: center; gap: 1px; }.icon-button, summary { width: 44px; height: 44px; border: 0; display: grid; place-items: center; border-radius: var(--radius); background: transparent; cursor: pointer; }.icon-button svg, summary svg { width: 22px; height: 22px; }.icon-button:hover, summary:hover { background: var(--soft); }
+  summary { list-style: none; } summary::-webkit-details-marker { display: none; }.settings { position: relative; }.settings-panel { position: absolute; top: 54px; right: 0; width: 265px; padding: 24px; border: 1px solid var(--line); background: var(--surface); box-shadow: 0 16px 50px #0002; border-radius: var(--radius); }.settings-panel label { display: grid; gap: 7px; font-size: 13px; margin-bottom: 16px; }.settings-panel .motion-label { display: flex; align-items: center; gap: 10px; margin: 0; min-height: 44px; }.motion-label input { min-height: auto; width: 16px; height: 16px; accent-color: var(--accent); }.settings-panel small { font-size: 11px; }
+  .mobile-nav, .menu-toggle { display: none; }
+  @media(max-width: 900px) { .desktop-nav { gap: 20px; }.desktop-nav small { display: none; } }
+  @media(max-width: 799px) { .header-inner { min-height: 72px; gap: 12px; }.desktop-nav { display: none; }.menu-toggle { display: grid; }.mobile-nav.is-open { display: grid; padding-bottom: 20px; }.mobile-nav a { padding: 14px 0; border-top: 1px solid var(--line); display: flex; justify-content: space-between; }.mobile-nav span { font: 11px var(--font-mono); color: var(--muted); }.settings-panel { right: -44px; }.brand { font-size: 20px; } }
+</style>

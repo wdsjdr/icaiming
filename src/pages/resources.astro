@@ -1,0 +1,11 @@
+---
+import PageLayout from '../layouts/PageLayout.astro';
+---
+<PageLayout title="发现好东西" eyebrow="02 / COLLECTION" english="Resources" description="工具、文档与灵感。让值得留下的东西，在下次需要时更容易找到。" section="resources">
+  <section data-resources><div class="search-row"><div class="filters" data-resource-filters aria-label="按资源分类筛选"></div><label class="search-field"><span class="eyebrow">检索收藏</span><input type="search" data-resource-search placeholder="工具名称、用途或标签…" aria-label="搜索资源" /></label></div><p data-resource-count class="eyebrow" aria-live="polite"></p><div data-resource-list class="resource-grid" aria-live="polite"><p class="loading">正在整理收藏…</p></div></section>
+  <aside class="source-note"><span class="mono">A NOTE ON SOURCES</span><p>当前展示手动整理的工具与参考链接。自动榜单与订阅聚合将在后续接入，并标明来源与更新时间。</p></aside>
+</PageLayout>
+<style>
+  .resource-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }.resource-grid :global(.resource-card) { padding: 25px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); display: flex; flex-direction: column; gap: 14px; }.resource-grid :global(.resource-card:hover) { border-color: var(--accent); }.resource-grid :global(h2) { font-size: 20px; margin: 0; font-weight: 550; }.resource-grid :global(p) { color: var(--muted); font-size: 13px; flex: 1; }.resource-grid :global(.resource-domain) { font: 10px var(--font-mono); color: var(--muted); overflow-wrap: anywhere; }.source-note { margin-top: 60px; border-top: 1px solid var(--line); padding-top: 25px; color: var(--muted); }.source-note span { font-size: 10px; }.source-note p { max-width: 600px; margin-top: 12px; font-size: 13px; }
+  @media(max-width: 900px) { .resource-grid { grid-template-columns: repeat(2, 1fr); } }@media(max-width: 600px) { .resource-grid { grid-template-columns: 1fr; } }
+</style>

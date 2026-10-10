@@ -1,0 +1,2 @@
+:root[data-theme='terminal'] { --font-body: 'Cascadia Code', Consolas, 'Microsoft YaHei', monospace; --font-display: var(--font-body); --radius: 0px; --bg: #edf2ec; --surface: #f8fcf7; --ink: #1e3624; --muted: #4d6b54; --line: #bfcfbe; --accent: #2c6938; --button-ink: #fff; --soft: #dfeadd; }
+:root[data-theme='terminal'][data-mode='dark'] { --bg: #0e1912; --surface: #14271b; --ink: #c3e6bf; --muted: #94b495; --line: #304d35; --accent: #9cdb90; --button-ink: #102412; --soft: #1d3824; }

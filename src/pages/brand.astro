@@ -1,0 +1,41 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import BrandMark from '../components/ui/BrandMark.astro';
+const sizes = [16, 24, 32, 48];
+---
+<BaseLayout title="标识预览 — IC Aiming" description="IC Aiming 完整标识、紧凑标识及尺寸预览。" section="about" noindex>
+  <main id="main" class="shell brand-preview">
+    <header class="page-head"><p class="eyebrow">IDENTITY STUDY / 02</p><h1>聚焦，留白。</h1><p class="description">A/W 构成核心轮廓；开口取景环与定位短线，呼应 IC。按展示尺寸选择合适的细节。</p></header>
+    <section class="specimens" aria-label="完整标识的明暗预览">
+      <figure class="specimen light"><figcaption class="mono">01 / FULL MARK · LIGHT</figcaption><div class="full-mark"><BrandMark /></div><div class="wordmark">IC <b>Aiming</b></div><p>ICE COLD / I SEE / AIMING</p></figure>
+      <figure class="specimen dark"><figcaption class="mono">02 / FULL MARK · DARK</figcaption><div class="full-mark"><BrandMark /></div><div class="wordmark">IC <b>Aiming</b></div><p>ICE COLD / I SEE / AIMING</p></figure>
+    </section>
+    <section class="section"><div class="section-label"><h2>小尺寸识别</h2><span class="eyebrow">COMPACT / ACTUAL SIZE</span></div><div class="size-grid">{sizes.map((size) => <figure class="size-sample"><div class="size-well"><div style={`width: ${size}px; height: ${size}px`}><BrandMark variant="compact" /></div></div><figcaption class="mono">{size} PX</figcaption></figure>)}</div><p class="preview-note">导航、页脚与 favicon 使用同一 A/W 轮廓。上方图标按真实像素尺寸显示。</p></section>
+    <section class="section lockup-section"><div><p class="eyebrow">HORIZONTAL LOCKUP</p><h2>标识与名字，一起出现。</h2><p class="muted">导航使用紧凑组合，大幅展示使用完整组合。</p></div><div class="lockup"><BrandMark variant="compact" /><span>IC <b>Aiming</b></span></div></section>
+    <div class="downloads"><a class="button secondary" href="/media/assets/brand/mark.svg" download="ic-aiming-mark.svg">完整标识 SVG ↓</a><a class="button secondary" href="/media/assets/brand/mark-compact.svg" download="ic-aiming-compact.svg">紧凑标识 SVG ↓</a><a class="button secondary" href="/media/assets/brand/wordmark.svg" download="ic-aiming-wordmark.svg">横版字标 SVG ↓</a><a class="small-link" href="/">回首页看实际效果 ↗</a></div>
+  </main>
+</BaseLayout>
+<style>
+  .brand-preview { padding-bottom: 70px; }
+  .specimens { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; padding: 40px 0; }
+  .specimen { margin: 0; padding: 28px 32px 34px; border: 1px solid var(--line); border-radius: var(--radius); }
+  .specimen.light { background: #f4f7f7; color: #162d35; }
+  .specimen.dark { background: #10191e; color: #e1e9ec; border-color: #30434c; }
+  .specimen figcaption { font-size: 10px; letter-spacing: .08em; }
+  .full-mark { width: 160px; margin: 40px auto 30px; }
+  .wordmark { text-align: center; font-size: 29px; letter-spacing: -.04em; font-weight: 450; }
+  .wordmark b, .lockup b { font-weight: 650; }
+  .specimen p { margin: 16px 0 0; text-align: center; font: 9px var(--font-mono); letter-spacing: .08em; }
+  .size-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+  .size-sample { margin: 0; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+  .size-well { height: 95px; display: grid; place-items: center; }
+  .size-sample figcaption { text-align: center; color: var(--muted); font-size: 10px; }
+  .preview-note { font-size: 13px; color: var(--muted); margin: 24px 0 0; }
+  .lockup-section { display: flex; align-items: center; justify-content: space-between; gap: 40px; }
+  .lockup-section h2 { font-size: 25px; font-weight: 500; }
+  .lockup-section p.muted { font-size: 13px; margin: 0; }
+  .lockup { display: flex; align-items: center; gap: 18px; font-size: 37px; letter-spacing: -.04em; font-weight: 450; white-space: nowrap; }
+  .lockup :global(svg) { width: 56px; height: 56px; }
+  .downloads { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  @media(max-width: 700px) { .specimens { gap: 14px; }.specimen { padding: 20px 14px; }.specimen figcaption { font-size: 8px; }.full-mark { width: min(120px, 100%); margin-block: 30px 24px; }.wordmark { font-size: 23px; }.specimen p { font-size: 7px; line-height: 1.8; }.size-grid { gap: 8px; }.size-sample { padding: 12px 6px; }.lockup-section { align-items: flex-start; flex-direction: column; gap: 28px; }.section-label { align-items: flex-start; }.section-label .eyebrow { max-width: 110px; text-align: right; line-height: 1.8; } }
+</style>

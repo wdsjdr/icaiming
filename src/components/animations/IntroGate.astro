@@ -1,0 +1,24 @@
+---
+// Decides before first paint whether the home intro plays, so the page never flashes underneath it.
+// Must render after the theme script in <head>: it relies on the resolved data-motion value.
+---
+<script is:inline>
+  (() => {
+    const root = document.documentElement;
+    const param = new URLSearchParams(location.search).get('intro');
+    let seen = false;
+    try { seen = sessionStorage.getItem('ic-intro') === 'seen'; } catch {}
+    const connection = navigator.connection;
+    const slow = !!connection && (connection.saveData || /(^|-)2g$/.test(connection.effectiveType || ''));
+    // Reduced motion and the in-site motion switch always win, even over ?intro=1.
+    const play = param !== '0' && root.dataset.motion === 'on' && (param === '1' || (!seen && !slow));
+    if (!play) return;
+    root.dataset.intro = 'play';
+    root.dataset.introVariant = navigator.deviceMemory && navigator.deviceMemory < 4 ? 'lite' : 'full';
+    try { sessionStorage.setItem('ic-intro', 'seen'); } catch {}
+    // Failsafe: if the intro module never starts, never leave the page covered.
+    setTimeout(() => {
+      if (root.dataset.intro === 'play' && !root.dataset.introClaimed) root.dataset.intro = 'done';
+    }, 7500);
+  })();
+</script>

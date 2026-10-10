@@ -1,0 +1,11 @@
+:root {
+  color-scheme: light;
+  --bg: #f4f7f7; --surface: #fff; --ink: #162d35; --muted: #63737a;
+  --line: #d6e0e3; --accent: #14617c; --button-ink: #fff; --soft: #e4edf0;
+  --radius: 5px; --font-body: 'Avenir Next', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-display: 'Iowan Old Style', 'Palatino Linotype', 'Noto Serif CJK SC', 'Songti SC', 'SimSun', Georgia, serif;
+  --font-mono: 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+}
+:root[data-mode='dark'] { color-scheme: dark; --bg: #10191e; --surface: #18252c; --ink: #e1e9ec; --muted: #a0b0b9; --line: #30434c; --accent: #95d2e7; --button-ink: #10212a; --soft: #1d303a; }
+:root[data-theme='default'][data-section='blog'][data-mode='light'] { --bg: #f6f4ef; --surface: #fdfcf8; --line: #dddcd2; --ink: #30362f; --muted: #686c60; --accent: #4e6550; --soft: #eeeee3; }
+:root[data-theme='default'][data-section='fun'][data-mode='light'] { --accent: #675134; --soft: #eae5d8; }
