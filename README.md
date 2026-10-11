@@ -69,6 +69,23 @@ pnpm dev
 
 `rankings/combined.json`、`misc/hotboard/*`、`misc/epic-free.json`、`misc/saying.json` 由聚合 Worker 直接写入 R2，**内容仓库不包含这些键**（导入器不会上传/删除它们，避免覆盖线上数据）；本地首次需运行 `pnpm aggregator:dev` 并访问 `/run` 抓一次，缺失时前端显示空状态。抓取源为 GitHub Trending 与 UAPI（热榜、Epic 限免需积分、一言免费），可用 `UAPI_KEY` secret 提升额度；积分预算见 [本地实施计划](docs/LOCAL-ROADMAP.md)。
 
+### 发布到生产 R2
+
+本地导入器默认只写本地 R2（`pnpm content:sync`）。要把内容发布到生产桶 `icaiming-content`（内容更新不触发 Pages 构建）：
+
+1. 在 Cloudflare 控制台创建 **R2 API 令牌**（权限 `Object Read & Write`，范围限定该桶），取得 Access Key ID 与 Secret Access Key。
+2. 写入 `.dev.vars`（已在 `.gitignore`，不会提交）：
+   ```text
+   R2_ACCESS_KEY_ID=...
+   R2_SECRET_ACCESS_KEY=...
+   ```
+   可选 `R2_ACCOUNT_ID`、`R2_BUCKET` 覆盖默认目标。
+3. 运行 `pnpm content:publish`：先校验全部内容，再通过 S3 API（`aws4fetch`）上传，并依据 `_local/manifest.json` 清单清理已删除的旧对象；**永不触碰 `rankings/`、`misc/`**（聚合 Worker 独占）。
+
+没有 S3 密钥时，也可在 `.dev.vars` 放 `CLOUDFLARE_API_TOKEN`（+ `CLOUDFLARE_ACCOUNT_ID`），`content:publish` 会自动回退用 wrangler 上传（较慢、不做清理）。
+
+内容仓库的 CI 可复用同一命令（凭据放仓库 Secrets）。
+
 ## 目录与架构
 
 ```text

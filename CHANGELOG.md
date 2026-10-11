@@ -18,6 +18,8 @@
 - 「限时免费」（Epic）从发现页移至 `/daily` 每日新闻下方。
 - Cron 触发器合并为 2 个（`0 */6 * * *`、`0 1 * * *`），在 5 个上限内并为后续数据源留出空间。
 - 修正聚合数据归属：内容导入器不再上传或删除 `rankings/`、`misc/` 键（缺失时前端显示空状态），避免覆盖 Worker 写入的线上数据；GitHub Trending 抓取增加 12s 超时，避免单源卡住整批任务。
+- 内容发布到生产 R2：新增 `pnpm content:publish`（经 S3 API / `aws4fetch` 并行上传，按 `_local/manifest.json` 清理旧对象，不碰 `rankings/`、`misc/`）；无 S3 密钥时可回退用 `CLOUDFLARE_API_TOKEN` + wrangler。
+- **修正 R2 桶名**：`ic-aiming-content` → `icaiming-content`（Pages 与聚合 Worker 的 `wrangler.toml`、发布脚本默认值），此前命名不一致会导致生产读写与发布失败。
 
 ### 计划中
 

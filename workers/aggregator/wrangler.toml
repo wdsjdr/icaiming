@@ -4,7 +4,7 @@ compatibility_date = "2025-10-11"
 
 [[r2_buckets]]
 binding = "CONTENT_BUCKET"
-bucket_name = "ic-aiming-content"
+bucket_name = "icaiming-content"
 
 # 2 of the 5 cron triggers allowed on the free plan.
 # 0 */6 * * *  → GitHub 趋势 + 热榜（UTC 每 6 小时）

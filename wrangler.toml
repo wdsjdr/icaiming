@@ -5,7 +5,7 @@ pages_build_output_dir = "./dist"
 
 [[r2_buckets]]
 binding = "CONTENT_BUCKET"
-bucket_name = "ic-aiming-content"
+bucket_name = "icaiming-content"
 
 [vars]
 LOCAL_DEV = "true"
