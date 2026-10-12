@@ -1,24 +1,195 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
-import BrandMark from '../../components/ui/BrandMark.astro';
 ---
-<PageLayout title="聚焦练习" eyebrow="EXPERIMENT 001 / FOCUS STUDY" english="Focus" description="调整轨道的角度和距离。没有标准答案，找到你喜欢的构图就好。" section="fun">
-  <div class="experiment"><div class="stage" data-focus-stage><div class="target-ring"></div><div class="orbit" data-focus-orbit></div><div class="orbit second" data-focus-orbit></div><div class="symbol"><BrandMark /></div><span class="mono stage-label">IC AIMING / FIELD STUDY</span></div><div class="controls"><p class="eyebrow">CONTROL PANEL</p><label>轨道角度 <output data-angle-value>32°</output><input aria-label="轨道角度" data-angle type="range" min="0" max="180" value="32" /></label><label>观察距离 <output data-scale-value>100%</output><input aria-label="观察距离" data-scale type="range" min="60" max="135" value="100" /></label><button class="button secondary" data-reset-focus>重置参数 ↺</button><p class="muted">支持键盘方向键。手动调整，不自动播放。</p><a class="small-link" href="/fun">← 回到好玩</a></div></div>
+<PageLayout title="聚焦练习" eyebrow="EXPERIMENT 001 / FOCUS STUDY" english="Focus" description="限时六十秒，点中不断出现的小球。记录反应时间与命中率，看看自己能稳定到什么程度。" section="fun">
+  <div class="drill">
+    <div class="drill-stage" data-drill-stage>
+      <span class="drill-timer mono" data-drill-timer>60.0</span>
+      <span class="drill-label mono">IC AIMING / FIELD STUDY</span>
+      <div class="drill-overlay" data-drill-overlay>
+        <p class="drill-message" data-drill-message>准备好了就开始。小球出现后立即点击，超时视为失误。</p>
+        <button class="button" type="button" data-drill-start>开始 ↗</button>
+      </div>
+    </div>
+    <aside class="drill-panel">
+      <p class="eyebrow">CONTROL PANEL</p>
+      <dl class="drill-stats">
+        <div><dt>命中</dt><dd data-stat-hits>0</dd></div>
+        <div><dt>命中率</dt><dd data-stat-accuracy>—</dd></div>
+        <div><dt>平均反应</dt><dd data-stat-average>—</dd></div>
+        <div><dt>最快反应</dt><dd data-stat-fastest>—</dd></div>
+      </dl>
+      <p class="drill-record mono">BEST <span data-stat-record>—</span></p>
+      <button class="button secondary" type="button" data-drill-restart>重新开始 ↺</button>
+      <p class="muted">小球会逐渐变小、消失更快。命中数优先，同分时看平均反应时间。</p>
+      <a class="small-link" href="/fun">← 回到好玩</a>
+    </aside>
+  </div>
 </PageLayout>
 <script>
-  const angle = document.querySelector<HTMLInputElement>('[data-angle]')!;
-  const scale = document.querySelector<HTMLInputElement>('[data-scale]')!;
-  const stage = document.querySelector<HTMLElement>('[data-focus-stage]')!;
-  function update() {
-    stage.style.setProperty('--angle', `${angle.value}deg`);
-    stage.style.setProperty('--scale', `${Number(scale.value) / 100}`);
-    document.querySelector('[data-angle-value]')!.textContent = `${angle.value}°`;
-    document.querySelector('[data-scale-value]')!.textContent = `${scale.value}%`;
+  import { DRILL_DURATION_MS, drillProfile, isBetterRecord, parseRecord, pickSpot, summarize, type DrillRecord } from '../../lib/focus-drill';
+
+  const STORAGE_KEY = 'focus-best';
+  const stage = document.querySelector<HTMLElement>('[data-drill-stage]');
+  const overlay = document.querySelector<HTMLElement>('[data-drill-overlay]');
+  const message = document.querySelector<HTMLElement>('[data-drill-message]');
+  const timer = document.querySelector<HTMLElement>('[data-drill-timer]');
+  const hitsOut = document.querySelector<HTMLElement>('[data-stat-hits]');
+  const accuracyOut = document.querySelector<HTMLElement>('[data-stat-accuracy]');
+  const averageOut = document.querySelector<HTMLElement>('[data-stat-average]');
+  const fastestOut = document.querySelector<HTMLElement>('[data-stat-fastest]');
+  const recordOut = document.querySelector<HTMLElement>('[data-stat-record]');
+  const startButton = document.querySelector<HTMLButtonElement>('[data-drill-start]');
+  const restartButton = document.querySelector<HTMLButtonElement>('[data-drill-restart]');
+
+  if (stage && overlay && message && timer && hitsOut && accuracyOut && averageOut && fastestOut && recordOut && startButton && restartButton) {
+    boot({ stage, overlay, message, timer, hitsOut, accuracyOut, averageOut, fastestOut, recordOut, startButton, restartButton });
   }
-  angle.addEventListener('input', update); scale.addEventListener('input', update);
-  document.querySelector('[data-reset-focus]')?.addEventListener('click', () => { angle.value = '32'; scale.value = '100'; update(); });
+
+  type Elements = {
+    stage: HTMLElement; overlay: HTMLElement; message: HTMLElement; timer: HTMLElement;
+    hitsOut: HTMLElement; accuracyOut: HTMLElement; averageOut: HTMLElement; fastestOut: HTMLElement;
+    recordOut: HTMLElement; startButton: HTMLButtonElement; restartButton: HTMLButtonElement;
+  };
+
+  function readStoredRecord(): DrillRecord | null {
+    try { return parseRecord(localStorage.getItem(STORAGE_KEY)); } catch { return null; }
+  }
+  function writeStoredRecord(record: DrillRecord) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(record)); } catch { /* Storage may be unavailable; the record then lasts only for this visit. */ }
+  }
+
+  function boot(el: Elements) {
+    let running = false;
+    let startAt = 0;
+    let raf = 0;
+    let current: { el: HTMLButtonElement; spawnedAt: number; expiresAt: number } | null = null;
+    let reactions: number[] = [];
+    let misses = 0;
+    let last: { x: number; y: number } | null = null;
+    let best = readStoredRecord();
+    let rounds = 0;
+
+    const pct = (value: number) => `${Math.round(value * 100)}%`;
+
+    function renderRecord() {
+      el.recordOut.textContent = best ? `${best.hits} 次 · 平均 ${best.average} ms · ${pct(best.accuracy)}` : '—';
+    }
+
+    function refresh() {
+      const left = running ? Math.max(0, DRILL_DURATION_MS - (performance.now() - startAt)) : (rounds ? 0 : DRILL_DURATION_MS);
+      el.timer.textContent = (left / 1000).toFixed(1);
+      const result = summarize(reactions, misses);
+      el.hitsOut.textContent = String(result.hits);
+      el.accuracyOut.textContent = reactions.length + misses ? pct(result.accuracy) : '—';
+      el.averageOut.textContent = result.hits ? `${result.average} ms` : '—';
+      el.fastestOut.textContent = result.hits ? `${result.fastest} ms` : '—';
+    }
+
+    function removeCurrent() {
+      current?.el.remove();
+      current = null;
+    }
+
+    function spawn() {
+      const now = performance.now();
+      const { size, life } = drillProfile(now - startAt);
+      const spot = pickSpot(el.stage.clientWidth, el.stage.clientHeight, size, last);
+      last = spot;
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.tabIndex = -1;
+      dot.className = 'drill-dot';
+      dot.setAttribute('aria-label', '小球');
+      dot.style.width = `${size}px`;
+      dot.style.height = `${size}px`;
+      dot.style.left = `${spot.x}px`;
+      dot.style.top = `${spot.y}px`;
+      dot.style.setProperty('--life', `${life}ms`);
+      dot.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        const target = current;
+        if (!running || !target || target.el !== dot) return;
+        reactions.push(Math.round(performance.now() - target.spawnedAt));
+        removeCurrent();
+        spawn();
+        refresh();
+      });
+      el.stage.append(dot);
+      current = { el: dot, spawnedAt: now, expiresAt: now + life };
+    }
+
+    function tick(now: number) {
+      if (!running) return;
+      if (now - startAt >= DRILL_DURATION_MS) { finish(); return; }
+      if (current && now >= current.expiresAt) {
+        misses++;
+        removeCurrent();
+        spawn();
+      }
+      refresh();
+      raf = requestAnimationFrame(tick);
+    }
+
+    function start() {
+      cancelAnimationFrame(raf);
+      removeCurrent();
+      reactions = [];
+      misses = 0;
+      last = null;
+      running = true;
+      el.overlay.hidden = true;
+      startAt = performance.now();
+      spawn();
+      refresh();
+      raf = requestAnimationFrame(tick);
+    }
+
+    function finish() {
+      if (!running) return;
+      running = false;
+      cancelAnimationFrame(raf);
+      removeCurrent();
+      rounds++;
+      const result = summarize(reactions, misses);
+      const improved = result.hits > 0 && isBetterRecord(result, best);
+      if (improved) { best = { hits: result.hits, average: result.average, accuracy: result.accuracy }; writeStoredRecord(best); }
+      refresh();
+      renderRecord();
+      el.message.textContent = result.hits
+        ? `本轮命中 ${result.hits} 次，命中率 ${pct(result.accuracy)}，平均反应 ${result.average} ms。${improved ? '刷新了最佳成绩。' : ''}`
+        : '本轮没有命中。再来一局，先找到节奏。';
+      el.startButton.textContent = '再来一局 ↗';
+      el.overlay.hidden = false;
+    }
+
+    el.stage.addEventListener('pointerdown', (event) => { if (running) event.preventDefault(); });
+    el.startButton.addEventListener('click', start);
+    el.restartButton.addEventListener('click', start);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) finish(); });
+    renderRecord();
+    refresh();
+  }
 </script>
-<style>
-  .experiment { display: grid; grid-template-columns: 1fr 290px; gap: 35px; }.stage { --angle: 32deg; --scale: 1; background: var(--soft); border: 1px solid var(--line); min-height: 440px; display: grid; place-items: center; position: relative; overflow: hidden; }.target-ring { width: 280px; height: 280px; border: 1px dashed var(--line); border-radius: 50%; position: absolute; }.orbit { width: 320px; height: 130px; border: 1px solid var(--accent); opacity: .65; border-radius: 50%; position: absolute; transform: rotate(var(--angle)) scale(var(--scale)); }.orbit.second { transform: rotate(calc(-1 * var(--angle))) scale(var(--scale)); }.symbol { width: 100px; color: var(--accent); }.stage-label { position: absolute; bottom: 20px; left: 20px; font-size: 9px; color: var(--muted); }.controls { padding-top: 22px; }.controls label { display: block; margin: 26px 0; font-size: 13px; }.controls output { float: right; color: var(--accent); font-family: var(--font-mono); }.controls input { display: block; width: 100%; padding: 0; background: transparent; accent-color: var(--accent); }.controls p.muted { font-size: 12px; margin-top: 22px; }
-  @media(max-width: 700px) { .experiment { grid-template-columns: 1fr; }.stage { min-height: 350px; }.orbit { width: 250px; height: 110px; }.controls { padding-top: 0; } }
+<style is:global>
+  .drill { display: grid; grid-template-columns: 1fr 290px; gap: 35px; align-items: start; }
+  .drill-stage { position: relative; aspect-ratio: 16 / 10; overflow: hidden; touch-action: none; user-select: none; cursor: crosshair; border: 1px solid var(--line); background-color: var(--soft); background-image: radial-gradient(var(--line) .85px, transparent .85px); background-size: 16px 16px; }
+  .drill-timer { position: absolute; z-index: 2; top: 14px; right: 20px; font-size: 22px; color: var(--ink); letter-spacing: .02em; }
+  .drill-label { position: absolute; z-index: 2; bottom: 18px; left: 20px; font-size: 9px; color: var(--muted); }
+  .drill-overlay { position: absolute; inset: 0; z-index: 3; display: grid; place-content: center; justify-items: center; gap: 20px; padding: 24px; text-align: center; background: color-mix(in srgb, var(--soft) 82%, transparent); backdrop-filter: blur(3px); cursor: default; }
+  .drill-message { max-width: 30ch; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.9; }
+  .drill-dot { position: absolute; z-index: 1; min-width: 0; min-height: 0; padding: 0; border: 0; border-radius: 50%; transform: translate(-50%, -50%); background: var(--accent); box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent); cursor: crosshair; animation: drill-in .16s ease-out both; }
+  .drill-dot::after { content: ''; position: absolute; inset: -9px; border: 1px solid var(--accent); border-radius: 50%; opacity: 0; animation: drill-ring var(--life) linear both; pointer-events: none; }
+  @keyframes drill-in { from { opacity: 0; transform: translate(-50%, -50%) scale(.4); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+  @keyframes drill-ring { from { opacity: .9; transform: scale(2.1); } to { opacity: .15; transform: scale(1); } }
+  .drill-panel { padding-top: 22px; }
+  .drill-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 22px 20px; margin: 26px 0; }
+  .drill-stats div { min-width: 0; }
+  .drill-stats dt { font: 10px var(--font-mono); letter-spacing: .1em; color: var(--muted); }
+  .drill-stats dd { margin: 6px 0 0; font-family: var(--font-mono); font-size: 22px; color: var(--ink); }
+  .drill-record { margin: 0 0 22px; font-size: 11px; letter-spacing: .06em; color: var(--muted); }
+  .drill-record span { color: var(--accent); }
+  .drill-panel .button { margin-bottom: 18px; }
+  .drill-panel p.muted { font-size: 12px; line-height: 1.8; }
+  @media (max-width: 700px) { .drill { grid-template-columns: 1fr; } .drill-panel { padding-top: 0; } .drill-timer { font-size: 18px; } }
 </style>

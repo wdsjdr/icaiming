@@ -1,15 +1,137 @@
 ---
-import PageLayout from '../../layouts/PageLayout.astro';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { experiments, searchText } from '../../lib/experiments';
 ---
-<PageLayout title="玩点不一样的" eyebrow="03 / PLAYGROUND" english="Play" description="一些不着急得出结论的尝试。移动一点参数，看看会发生什么。" section="fun">
-  <div class="experiment-grid">
-    <a class="experiment-link" href="/fun/focus"><div class="experiment-art" aria-hidden="true"><span>✳</span><i class="mono">01 / FOCUS STUDY</i></div><div class="experiment-copy"><p class="eyebrow">INTERACTIVE / SVG</p><h2>聚焦练习</h2><p>旋转、拉近，让轨道与几何标识重合。一个关于 IC Aiming 的轻量交互实验。</p><span class="button secondary">进入实验 ↗</span></div></a>
-    <a class="experiment-link" href="/fun/answerbook"><div class="experiment-art answer-art" aria-hidden="true"><span>✧</span><i class="mono">02 / ANSWER BOOK</i></div><div class="experiment-copy"><p class="eyebrow">INTERACTIVE / ASK</p><h2>答案之书</h2><p>写下一个问题，翻到随机的一页。未必有用，但值得看一眼。</p><span class="button secondary">进入实验 ↗</span></div></a>
-  </div>
-  <p class="lab-note mono">SMALL EXPERIMENTS. OPEN POSSIBILITIES.</p>
-</PageLayout>
+<BaseLayout title="玩点不一样的 — IC Aiming" description="一些不着急得出结论的尝试。移动一点参数，看看会发生什么。" section="fun">
+  <section class="play-hero" data-scroll-soften aria-labelledby="play-title">
+    <canvas class="life-canvas" data-life-canvas aria-hidden="true"></canvas>
+    <div class="play-hero-inner shell">
+      <p class="eyebrow"><span class="status-dot"></span>03 / PLAYGROUND</p>
+      <h1 id="play-title">Play</h1>
+      <p class="play-zh">玩点不一样的</p>
+      <div class="play-caption"><span class="caption-line"></span><p>一些不着急得出结论的尝试。移动一点参数，看看会发生什么。</p></div>
+    </div>
+    <a class="scroll-cue" href="#experiments" aria-label="向下查看实验目录">
+      <span class="mono">INDEX</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6" /></svg>
+    </a>
+  </section>
+
+  <main id="main" class="shell">
+    <section id="experiments" class="play-index" aria-labelledby="index-title">
+      <div class="index-head">
+        <h2 id="index-title">实验目录<span class="small-en">INDEX</span></h2>
+        <p class="index-count mono" data-play-count>共 {experiments.length} 个实验</p>
+      </div>
+      <label class="search-field index-search">
+        <span class="eyebrow">搜索标题、描述或标签</span>
+        <input type="search" data-play-search placeholder="比如：限时、UAPI、随机…" autocomplete="off" aria-label="搜索实验" />
+      </label>
+      <ol class="index-list">
+        {experiments.map((item, index) => (
+          <li class="index-row" data-play-row data-search={searchText(item)}>
+            <a class="index-link" href={item.href}>
+              <span class="row-no mono">{String(index + 1).padStart(2, '0')}</span>
+              <span class="row-main">
+                <span class="row-title">{item.title}</span>
+                <span class="row-desc">{item.description}</span>
+              </span>
+              <span class="row-status mono">{item.status}</span>
+              <span class="row-tags">{item.tags.map((tag) => <span class="tag">{tag}</span>)}</span>
+              <span class="row-arrow" aria-hidden="true">↗</span>
+            </a>
+          </li>
+        ))}
+      </ol>
+      <p class="empty-state" data-play-empty hidden>没有匹配的实验，换个关键词试试。</p>
+      <p class="lab-note mono">SMALL EXPERIMENTS. OPEN POSSIBILITIES.</p>
+    </section>
+  </main>
+</BaseLayout>
+<script>
+  import { bootLifeGrid } from '../../lib/life-grid';
+  import { bootPageScrollSoften } from '../../lib/scroll-soften';
+  import { matchesQuery } from '../../lib/experiments';
+
+  // Conway's Game of Life fills the opening screen: ornamental, so it fails quietly and stands
+  // still for visitors who asked for reduced motion.
+  const canvas = document.querySelector<HTMLCanvasElement>('[data-life-canvas]');
+  if (canvas) {
+    try { bootLifeGrid(canvas); }
+    catch { /* Decorative only. */ }
+  }
+  bootPageScrollSoften();
+
+  // Search only filters rows that are already rendered, so the list stays complete without JavaScript.
+  const input = document.querySelector<HTMLInputElement>('[data-play-search]');
+  const rows = [...document.querySelectorAll<HTMLElement>('[data-play-row]')];
+  const count = document.querySelector<HTMLElement>('[data-play-count]');
+  const empty = document.querySelector<HTMLElement>('[data-play-empty]');
+  if (input) {
+    const apply = () => {
+      const query = input.value.trim();
+      let shown = 0;
+      for (const row of rows) {
+        const match = matchesQuery(row.dataset.search ?? '', query);
+        row.hidden = !match;
+        if (match) shown++;
+      }
+      if (count) count.textContent = query ? `匹配 ${shown} / ${rows.length}` : `共 ${rows.length} 个实验`;
+      if (empty) empty.hidden = shown > 0;
+      const url = new URL(location.href);
+      if (query) url.searchParams.set('q', query); else url.searchParams.delete('q');
+      history.replaceState(null, '', url);
+    };
+    input.value = new URLSearchParams(location.search).get('q') ?? '';
+    input.addEventListener('input', apply);
+    apply();
+  }
+</script>
 <style>
-  .experiment-grid { display: grid; gap: 24px; }
-  .experiment-link { display: grid; grid-template-columns: 1.1fr 1fr; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }.experiment-art { background: var(--soft); min-height: 330px; display: grid; place-items: center; position: relative; }.experiment-art>span { font-size: 230px; line-height: 1; color: var(--accent); }.answer-art>span { font-size: 190px; }.experiment-art>i { position: absolute; bottom: 20px; left: 22px; font-size: 10px; font-style: normal; color: var(--muted); }.experiment-copy { padding: 45px; align-self: center; }.experiment-copy h2 { font-size: 34px; font-weight: 500; }.experiment-copy p:not(.eyebrow) { color: var(--muted); font-size: 14px; line-height: 1.9; }.experiment-copy .button { margin-top: 16px; }.lab-note { margin: 40px 0 0; color: var(--muted); font-size: 10px; letter-spacing: .08em; }
-  @media(max-width: 700px) { .experiment-link { grid-template-columns: 1fr; }.experiment-art { min-height: 240px; }.experiment-art>span { font-size: 180px; }.answer-art>span { font-size: 150px; }.experiment-copy { padding: 28px; } }
+  /* Opening screen: fills the viewport below the header (87px desktop incl. border, 73px mobile). */
+  .play-hero { position: relative; overflow: hidden; display: flex; align-items: center; min-height: calc(100vh - 87px); min-height: calc(100svh - 87px); }
+  .play-hero.is-softening { filter: blur(var(--soften-blur, 0px)); mask-image: linear-gradient(to top, transparent 0%, transparent var(--soften-front, 0%), #000 var(--soften-edge, 0%), #000 100%); -webkit-mask-image: linear-gradient(to top, transparent 0%, transparent var(--soften-front, 0%), #000 var(--soften-edge, 0%), #000 100%); }
+  .life-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; opacity: .5; pointer-events: none; -webkit-mask-image: radial-gradient(ellipse 78% 82% at 50% 46%, #000 55%, transparent 100%); mask-image: radial-gradient(ellipse 78% 82% at 50% 46%, #000 55%, transparent 100%); }
+  .play-hero-inner { position: relative; z-index: 1; padding-bottom: 88px; }
+  .play-hero h1 { font-size: clamp(96px, 15vw, 210px); font-weight: 550; letter-spacing: -.065em; line-height: .95; margin: 22px 0 0; }
+  .play-zh { margin: 14px 0 0; color: var(--accent); font-size: clamp(22px, 2.6vw, 30px); font-weight: 500; letter-spacing: .02em; line-height: 1.3; }
+  .play-caption { display: flex; gap: 18px; align-items: start; margin-top: 28px; }
+  .play-caption .caption-line { width: 25px; flex-shrink: 0; border-top: 1px solid var(--accent); margin-top: 12px; }
+  .play-caption p { margin: 0; max-width: 460px; color: var(--muted); font-size: 15px; line-height: 1.9; }
+  .scroll-cue { position: absolute; z-index: 1; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 44px; min-height: 44px; justify-content: center; color: var(--muted); font-size: 10px; letter-spacing: .12em; }
+  .scroll-cue svg { width: 22px; height: 22px; color: var(--accent); }
+  .scroll-cue:hover { color: var(--accent); }
+  @keyframes cue-bob { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 6px); } }
+  @media (prefers-reduced-motion: no-preference) { :global(html[data-motion='on']) .scroll-cue { animation: cue-bob 2.2s ease-in-out infinite; } }
+
+  /* Index: one row per experiment, search above. */
+  .play-index { padding: 84px 0 96px; scroll-margin-top: 16px; }
+  .index-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; }
+  .index-head h2 { margin: 0; font-size: 26px; font-weight: 550; letter-spacing: -.04em; }
+  .small-en { font: 9px var(--font-mono); color: var(--muted); margin-left: 16px; letter-spacing: .07em; }
+  .index-count { margin: 0; font-size: 10px; letter-spacing: .08em; color: var(--muted); }
+  .index-search { display: grid; gap: 12px; width: min(100%, 420px); margin: 28px 0 22px; }
+  .index-search input { width: 100%; }
+  .index-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .index-row { border-bottom: 1px solid var(--line); }
+  .index-link { display: grid; grid-template-columns: 56px minmax(0, 1fr) 64px minmax(0, 300px) 24px; gap: 20px; align-items: center; min-height: 44px; padding: 26px 0; transition: background .2s; }
+  .index-link:hover .row-title { color: var(--accent); }
+  .row-no { font-size: 12px; color: var(--accent); }
+  .row-main { display: grid; gap: 8px; min-width: 0; }
+  .row-title { font-size: 20px; font-weight: 550; letter-spacing: -.02em; }
+  .row-desc { color: var(--muted); font-size: 13px; line-height: 1.8; }
+  .row-status { font-size: 10px; letter-spacing: .08em; color: var(--muted); }
+  .row-tags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+  .row-arrow { text-align: right; color: var(--muted); font-size: 16px; }
+  .index-link:hover .row-arrow { color: var(--accent); }
+  .lab-note { margin: 40px 0 0; color: var(--muted); font-size: 10px; letter-spacing: .08em; }
+
+  @media (max-width: 799px) {
+    .play-hero { min-height: calc(100vh - 73px); min-height: calc(100svh - 73px); }
+    .play-hero-inner { padding-bottom: 80px; }
+    .play-index { padding: 60px 0 72px; }
+    .index-link { grid-template-columns: 34px minmax(0, 1fr) 18px; gap: 10px 16px; padding: 22px 0; }
+    .row-status { display: none; }
+    .row-tags { grid-column: 2 / -1; grid-row: 2; justify-content: flex-start; }
+  }
 </style>

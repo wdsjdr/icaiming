@@ -75,7 +75,7 @@ icaiming-content/ → 校验 / 生成文章索引 → 本地 R2
 - [x] 浏览器验证主题、移动导航、检索、详情直达、错误路径。
 - [x] 实测内容更新无需 Astro 重建，更新 README 和本计划进度。
 
-本轮已完成 M1—M4，并加入 `/fun/focus` 手动聚焦实验。验证细节见 [VERIFICATION.md](VERIFICATION.md)，启动及维护方法见 [README](../README.md)。
+本轮已完成 M1—M4，并加入 `/fun/focus` 点小球练习（限时、反应时间统计、难度递增、本地最佳成绩）。验证细节见 [VERIFICATION.md](VERIFICATION.md)，启动及维护方法见 [README](../README.md)。
 
 ## 5. 后续工作
 

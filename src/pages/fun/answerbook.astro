@@ -7,26 +7,35 @@ import PageLayout from '../../layouts/PageLayout.astro';
       <label class="eyebrow" for="answerbook-q">你的问题</label>
       <div class="answerbook-row">
         <input id="answerbook-q" name="q" type="text" maxlength="100" autocomplete="off" placeholder="比如：今天会有好运气吗？" />
-        <button class="button" type="submit">翻开一页 <span>↗</span></button>
+        <button class="button" type="submit">翻开一页 ↗</button>
       </div>
       <p class="answerbook-status mono" data-answerbook-status aria-live="polite"></p>
     </form>
-    <div class="answerbook-page"><span class="answerbook-mark mono">IC / ANSWER</span><p data-answerbook-answer class="answerbook-answer">写下问题，答案会出现在这里。</p></div>
+    <div class="answerbook-page">
+      <div class="answerbook-head"><span class="answerbook-mark mono">IC / ANSWER</span></div>
+      <div class="answerbook-body"><p data-answerbook-answer class="answerbook-answer">写下问题，答案会出现在这里。</p></div>
+    </div>
   </div>
   <p class="lab-note mono">RANDOM ANSWERS. NO GUARANTEES.</p>
 </PageLayout>
 <style>
-  .answerbook { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
+  .answerbook { display: grid; gap: 36px; max-width: 760px; }
   .answerbook-form label { display: block; margin-bottom: 14px; margin-top: 0; }
   .answerbook-row { display: flex; gap: 12px; flex-wrap: wrap; }
   .answerbook-row input { flex: 1; min-width: 200px; }
-  .answerbook-row .button { white-space: nowrap; }
-  .answerbook-status { margin: 14px 0 0; min-height: 18px; font-size: 11px; color: var(--muted); }
-  .answerbook-page { border: 1px solid var(--line); border-radius: var(--radius); background: var(--soft); padding: 34px; min-height: 240px; display: flex; flex-direction: column; justify-content: space-between; }
-  .answerbook-mark { font-size: 9px; letter-spacing: .12em; color: var(--muted); }
-  .answerbook-answer { font-family: var(--font-display); font-size: clamp(22px, 3vw, 34px); line-height: 1.5; margin: 24px 0 0; letter-spacing: -.01em; transition: opacity .3s; }
+  .answerbook-row .button { white-space: nowrap; font-weight: 500; }
+  .answerbook-status { margin: 14px 0 0; font-size: 11px; color: var(--muted); }
+  .answerbook-status:empty { display: none; }
+  .answerbook-page { border: 1px solid var(--line); border-radius: var(--radius); background: var(--soft); min-height: 260px; display: flex; flex-direction: column; }
+  .answerbook-head { display: flex; align-items: center; padding: 16px 32px; border-bottom: 1px solid var(--line); }
+  .answerbook-mark { font-size: 10px; letter-spacing: .12em; color: var(--muted); }
+  .answerbook-body { flex: 1; display: flex; align-items: center; padding: 44px 40px; }
+  .answerbook-answer { margin: 0; font-family: 'Songti SC', 'SimSun', 'STSong', 'Noto Serif CJK SC', serif; font-size: clamp(24px, 3.2vw, 36px); line-height: 1.6; letter-spacing: .01em; transition: opacity .3s; }
   .answerbook-answer.is-thinking { opacity: .35; }
   .answerbook-answer.is-revealed { color: var(--accent); }
   .lab-note { margin: 40px 0 0; color: var(--muted); font-size: 10px; letter-spacing: .08em; }
-  @media(max-width: 750px) { .answerbook { grid-template-columns: 1fr; gap: 24px; } }
+  @media(max-width: 750px) {
+    .answerbook-head { padding: 14px 22px; }
+    .answerbook-body { padding: 32px 24px; }
+  }
 </style>
