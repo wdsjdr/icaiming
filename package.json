@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "tsx scripts/dev.ts",
+    "admin": "tsx scripts/admin/server.ts",
     "dev:ui": "astro dev",
     "content:sync": "tsx scripts/content.ts",
     "content:check": "tsx scripts/content.ts --check",

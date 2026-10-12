@@ -30,6 +30,7 @@ pnpm dev
 | 命令 | 用途 |
 | --- | --- |
 | `pnpm dev` | 完整本地站点，自动同步内容和重建代码 |
+| `pnpm admin` | 本地管理页（127.0.0.1:4400）：文章、资源、下载、项目、资料、简历、媒体库与校验/发布 |
 | `pnpm content:check` | 校验所有内容，不写入 R2 |
 | `pnpm content:sync` | 手动同步内容至本地 R2 |
 | `pnpm check` | 分别检查 Astro/浏览器代码及 Workers 类型 |
@@ -43,6 +44,19 @@ pnpm dev
 
 `test:local` 会创建唯一命名的临时文章并在结束后删除；开发服务正在运行时执行。默认访问 `http://127.0.0.1:4321`，可用环境变量 `LOCAL_ORIGIN` 修改。
 
+## 本地管理页（pnpm admin）
+
+`pnpm admin` 启动仅监听 127.0.0.1:4400 的管理页（自动打开浏览器，`--no-open` 或 `ADMIN_NO_OPEN=1` 可禁用；端口用 `ADMIN_PORT` 调整），无需安装额外依赖：
+
+- 编辑文章（frontmatter 表单 + Markdown 实时预览）、资源收藏、下载清单、项目、资料/首页、简历（含 PDF 上传），管理 `assets/`、`downloads/`、`resume/` 媒体文件。
+- 所有写入只落到 `../icaiming-content/`（原子写入 + 同名自动序号 + 文件名校验）；本地 R2 同步仍由 `pnpm dev` 监听完成，管理页不直接写 R2。
+- 删除进入 `icaiming-content/.trash/`，可在管理页恢复或彻底删除。
+- 「校验全部内容」等价 `content:check`；「发布到生产 R2」等价 `content:publish`（增量上传：未变更对象跳过，完成后汇总新增/更新/跳过/删除），发布前二次确认并回显日志，`.dev.vars` 凭据只在服务端读取。
+- 条目编辑交互：新增条目自动滚动定位并聚焦、必填与链接/日期格式就地中文校验、错误条目定位高亮、未保存修改在切换页签或关闭页面前确认、移动按钮边界禁用、工具栏吸顶；下载条目可在表单内直接上传文件并自动填入路径与大小（新建/编辑文章同样有未保存守卫）。
+- 发布凭据（R2 令牌）可直接在「概览 → 发布凭据」粘贴更新：保存写入 `icaiming/.dev.vars`（合并保留其他行，已 gitignore），当前会话立即生效，适合 R2 令牌到期轮换；已保存的值不会回显。
+- 安全约束：仅回环地址 + Host/Origin 校验 + 每次启动的会话令牌；`rankings/`、`misc/`、`posts/index.json` 永不可写；上传默认 50MB 上限（`ADMIN_MAX_UPLOAD_MB` 调整）。
+- Windows 快捷启动：双击工作区根目录的 `启动管理页.cmd`——检测 4321 端口，站点未运行时先开新窗口跑 `pnpm dev`，再启动管理页；额外参数会透传给 `pnpm admin`（如 `--no-open`）。
+
 ## 已实现
 
 - IC Aiming 品牌、响应式公共布局和分区视觉。
@@ -54,8 +68,9 @@ pnpm dev
 - 动态 `/rss.xml`、`/sitemap.xml`，真实社交入口、资源分类搜索、结构化简历与 PDF 状态。
 - 发现页分栏 Tab：「精选收藏」「资源下载」「数据榜单」「热榜 · 前沿」（默认热榜，粘性标签栏，方向键可切换，首次激活才拉取）；下载项经内容仓库导入、`/media` 带 attachment 下载；榜单（GitHub 趋势）与热榜、一言由聚合 Worker 定时抓取写入 R2，前端呈现并标注更新时间，失败保留上次结果。
 - `/daily` 每日新闻日历：聚合 Worker 每日 09:00（北京）抓一张新闻图存入 R2，月历可回看近 12 个月，超过 `NEWS_RETENTION_DAYS`（默认 365 天）自动清理；日历下方展示 Epic「限时免费」游戏。
-- `/fun/focus` 聚焦练习与 `/fun/answerbook` 答案之书（实时转发 UAPI，免费接口，失败回退提示）；首页 status 行与页脚显示随机一言。
+- `/fun/focus` 聚焦练习（限时 60 秒点小球，难度递增，统计反应时间与命中率，最佳成绩存于本地 `focus-best`）与 `/fun/answerbook` 答案之书（实时转发 UAPI，免费接口，失败回退提示）；首页 status 行与页脚显示随机一言。游戏与实验条目硬编码在 `src/pages/fun/` 中，不属于内容仓库。
 - 首页开屏动画：原子 → 平面 → 翻转显示标识与标语 → 镜头穿越，Three.js + GSAP 按需加载（gzip 约 174 KB），每会话一次，可跳过；`?intro=1` 重播、`?intro=0` 关闭，详见 [品牌规范](docs/BRAND.md#开屏动画)。
+- 两处背景涌现效果，均为纯 Canvas、按需加载、失败不影响页面：首页 Hero 的「流光」使用 Reynolds Boids、缓弯主流向与渐隐拖尾（不绘制粒子头），指针轻微扰动；`/fun` 页头区域铺满的康威生命游戏以低密度方格缓慢变化，作为「玩点不一样的 / Play」标题底纹。两者配色取自 CSS 变量，随皮肤与明暗模式切换；关闭动画或系统「减少动态效果」时保留静态画面，离开视口或标签页隐藏时暂停。首页 Hero 和 Playground 页头随滚动由下而上柔和虚化退场（模糊上限 12px）。
 
 简历经历、教育和 PDF 尚待个人资料补充；页面展示对应空状态。两篇初始文章明确作为示例，资源列表为建站相关的初始收藏。
 
@@ -80,7 +95,7 @@ pnpm dev
    R2_SECRET_ACCESS_KEY=...
    ```
    可选 `R2_ACCOUNT_ID`、`R2_BUCKET` 覆盖默认目标。
-3. 运行 `pnpm content:publish`：先校验全部内容，再通过 S3 API（`aws4fetch`）上传，并依据 `_local/manifest.json` 清单清理已删除的旧对象；**永不触碰 `rankings/`、`misc/`**（聚合 Worker 独占）。
+3. 运行 `pnpm content:publish`：先校验全部内容，再通过 S3 API（`aws4fetch`）**增量上传**——逐对象 HEAD 比对 ETag/MD5，未变更对象自动跳过，完成后输出「新增 / 更新 / 跳过 / 删除」汇总，并依据 `_local/manifest.json` 清单清理已删除的旧对象；**永不触碰 `rankings/`、`misc/`**（聚合 Worker 独占）。
 
 没有 S3 密钥时，也可在 `.dev.vars` 放 `CLOUDFLARE_API_TOKEN`（+ `CLOUDFLARE_ACCOUNT_ID`），`content:publish` 会自动回退用 wrangler 上传（较慢、不做清理）。
 

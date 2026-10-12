@@ -2,6 +2,7 @@ import { readFile, readdir, writeFile, stat, mkdir } from 'node:fs/promises';
 import { resolve, relative, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { Miniflare } from 'miniflare';
 import { AwsClient } from 'aws4fetch';
 import { z } from 'zod';
@@ -12,7 +13,7 @@ export const contentRoot = resolve(root, '../icaiming-content');
 // Wrangler appends /v3 to --persist-to; Miniflare needs the complete R2 path.
 export const persist = resolve(root, '.wrangler/state');
 const r2Path = resolve(persist, 'v3/r2');
-const contentTypes: Record<string, string> = { '.json': 'application/json', '.md': 'text/markdown', '.svg': 'image/svg+xml', '.pdf': 'application/pdf', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg' };
+const contentTypes: Record<string, string> = { '.json': 'application/json', '.md': 'text/markdown', '.svg': 'image/svg+xml', '.pdf': 'application/pdf', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.avif': 'image/avif', '.ico': 'image/x-icon', '.zip': 'application/zip', '.7z': 'application/x-7z-compressed', '.txt': 'text/plain; charset=utf-8' };
 // Aggregator-owned key prefixes: written by the Worker directly to R2, never touched by this importer.
 const protectedPrefixes = ['rankings/', 'misc/'];
 // Known production R2 target; override via env if needed.
@@ -107,11 +108,32 @@ async function loadEnvFile(path: string) {
   }
 }
 
+export interface PublishSummary {
+  mode: 's3' | 'wrangler';
+  added: number;
+  updated: number;
+  skipped: number;
+  removed: number;
+}
+
+export function md5Hex(body: string | Buffer) {
+  return createHash('md5').update(body).digest('hex');
+}
+
+// R2/S3 objects uploaded with a single PUT expose their MD5 as the ETag, so an
+// unchanged object can be detected without downloading it. Multipart ETags
+// (with a "-N" suffix) and any mismatch always require a fresh upload.
+export function remoteAction(localMd5: string, remote: { status: number; etag: string | null }): 'add' | 'update' | 'skip' {
+  if (remote.status === 404) return 'add';
+  const etag = (remote.etag ?? '').trim().replace(/^"+|"+$/g, '').toLowerCase();
+  return etag === localMd5 ? 'skip' : 'update';
+}
+
 // Publish importer-managed content to the production R2 bucket.
 // Prefers the S3 API (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY), falls back to wrangler
 // with a Cloudflare API token (CLOUDFLARE_API_TOKEN). Aggregator-owned prefixes
 // (rankings/, misc/) are never uploaded or pruned here.
-export async function publishContent() {
+export async function publishContent(): Promise<PublishSummary> {
   await loadEnvFile(resolve(root, '.dev.vars'));
   await loadEnvFile(resolve(root, '.env'));
   if (process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY) return publishViaS3();
@@ -119,7 +141,7 @@ export async function publishContent() {
   throw new Error('缺少 R2 凭据：设置 R2_ACCESS_KEY_ID + R2_SECRET_ACCESS_KEY（S3），或 CLOUDFLARE_API_TOKEN（wrangler）');
 }
 
-async function publishViaS3() {
+async function publishViaS3(): Promise<PublishSummary> {
   const accessKeyId = process.env.R2_ACCESS_KEY_ID!;
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY!;
   const accountId = process.env.R2_ACCOUNT_ID || DEFAULT_R2_ACCOUNT_ID;
@@ -128,26 +150,45 @@ async function publishViaS3() {
   const client = new AwsClient({ accessKeyId, secretAccessKey, service: 's3', region: 'auto' });
   const base = `https://${accountId}.r2.cloudflarestorage.com/${bucket}`;
   const objectUrl = (key: string) => `${base}/${key.split('/').map(encodeURIComponent).join('/')}`;
-  const put = async (key: string, body: string | Buffer, contentType: string) => {
-    const response = await client.fetch(objectUrl(key), { method: 'PUT', headers: { 'content-type': contentType }, body });
+  const summary: PublishSummary = { mode: 's3', added: 0, updated: 0, skipped: 0, removed: 0 };
+  const syncObject = async (key: string, body: string | Buffer, contentType: string) => {
+    const localMd5 = md5Hex(body);
+    const head = await client.fetch(objectUrl(key), { method: 'HEAD' });
+    const action = remoteAction(localMd5, { status: head.status, etag: head.headers.get('etag') });
+    if (action === 'skip') { summary.skipped++; return; }
+    // aws4fetch uses the Web Fetch BodyInit type; copy the exact Buffer slice into an ArrayBuffer
+    // so Node's generic Buffer type does not leak into the browser-oriented declaration.
+    const payload: BodyInit = typeof body === 'string'
+      ? body
+      : body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as unknown as ArrayBuffer;
+    const response = await client.fetch(objectUrl(key), { method: 'PUT', headers: { 'content-type': contentType }, body: payload });
     if (!response.ok) throw new Error(`上传失败 ${key}：${response.status} ${await response.text()}`);
+    if (action === 'add') summary.added += 1;
+    else summary.updated += 1;
+    console.log(action === 'add' ? `[publish] 新增 ${key}` : `[publish] 更新 ${key}`);
   };
   const manifest = await client.fetch(objectUrl('_local/manifest.json'));
   const manifestText = await manifest.text();
   const oldKeys = manifest.ok ? z.array(z.string()).parse(JSON.parse(manifestText || '[]')) : [];
-  let uploaded = 0;
-  for (const [key, body] of objects) { await put(key, body, contentTypes[extname(key)] ?? 'application/octet-stream'); uploaded++; }
-  let removed = 0;
+  for (const [key, body] of objects) await syncObject(key, body, contentTypes[extname(key)] ?? 'application/octet-stream');
   for (const key of oldKeys) {
     if (objects.has(key) || protectedPrefixes.some((prefix) => key.startsWith(prefix))) continue;
     const response = await client.fetch(objectUrl(key), { method: 'DELETE' });
-    if (response.ok || response.status === 404) { console.log(`[publish] 清理旧对象 ${key}`); removed++; }
+    if (response.ok || response.status === 404) { console.log(`[publish] 清理旧对象 ${key}`); summary.removed++; }
   }
-  await put('_local/manifest.json', JSON.stringify([...objects.keys()]), 'application/json');
-  console.log(`[publish] 已发布 ${uploaded} 个对象、清理 ${removed} 个旧对象到 R2 桶 ${bucket}`);
+  const manifestBody = JSON.stringify([...objects.keys()]);
+  if (remoteAction(md5Hex(manifestBody), { status: manifest.status, etag: manifest.headers.get('etag') }) !== 'skip') {
+    const response = await client.fetch(objectUrl('_local/manifest.json'), { method: 'PUT', headers: { 'content-type': 'application/json' }, body: manifestBody });
+    if (!response.ok) throw new Error(`上传失败 _local/manifest.json：${response.status} ${await response.text()}`);
+  }
+  const changed = summary.added + summary.updated + summary.removed;
+  console.log(changed
+    ? `[publish] 已发布到 R2 桶 ${bucket}：新增 ${summary.added}、更新 ${summary.updated}、跳过 ${summary.skipped}、删除 ${summary.removed}`
+    : `[publish] 无变更：${summary.skipped} 个对象已是最新，未写入 R2 桶 ${bucket}`);
+  return summary;
 }
 
-async function publishViaWrangler() {
+async function publishViaWrangler(): Promise<PublishSummary> {
   const token = process.env.CLOUDFLARE_API_TOKEN!;
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID || process.env.R2_ACCOUNT_ID || DEFAULT_R2_ACCOUNT_ID;
   const bucket = process.env.R2_BUCKET || DEFAULT_R2_BUCKET;
@@ -173,7 +214,8 @@ async function publishViaWrangler() {
   }
   await run(['r2', 'object', 'put', `${bucket}/_local/manifest.json`, '--remote', '--content-type=application/json', '--pipe'], JSON.stringify([...objects.keys()]));
   process.stdout.write('\n');
-  console.log(`[publish] 已通过 wrangler 发布 ${uploaded} 个对象到 R2 桶 ${bucket}`);
+  console.log(`[publish] 已通过 wrangler 上传 ${uploaded} 个对象到 R2 桶 ${bucket}（回退路径，无变更检测）`);
+  return { mode: 'wrangler', added: uploaded, updated: 0, skipped: 0, removed: 0 };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

@@ -6,6 +6,11 @@
 
 ### 新增
 
+- 首页 Hero 背景「流光」：Reynolds Boids 以拖拽的光线呈现（无鸟类形态），加入缓弯主流向、连续柔线拖尾与更轻的指针扰动；雷达面板坐标显示群体质心。
+- `/fun` 标题区背景康威生命游戏：环形边界 B3/S23，以稀疏、慢速、低对比度的标准方格衬托「玩点不一样的 / Play」标题；实验卡保持独立清晰。
+- 首页 Hero 与 Playground 标题区随滚动由下而上柔和虚化退场；导航和实验卡保持清晰，减少动态效果时关闭过渡。
+- 两处背景效果共用 `src/lib/ambient.ts`：从 CSS 变量解析配色（支持 hex/rgb 形式）、明暗判定、可见性与外观变化订阅；皮肤或明暗模式切换后即时重新取色。
+- 为两处效果的纯函数逻辑补充离线测试（`tests/ambient.test.ts`：密度预算单调性与上限、网格尺寸约束、颜色解析与混色）。
 - 发现页新增「资源下载」区块：内容仓库 `downloads/index.json` 清单 + 文件校验，`/media/<file>?download=1` 以附件下载。
 - 发现页新增「数据榜单」「热榜 · 前沿」「限时免费」区块：桌面表格 / 手机卡片双形态，标注来源与更新时间，空状态诚实展示；热榜支持平台 Tab 切换。
 - `/fun/answerbook` 答案之书实验：实时转发 UAPI（免费接口），失败给出提示；首页 status 行与页脚显示随机一言。
@@ -20,6 +25,34 @@
 - 修正聚合数据归属：内容导入器不再上传或删除 `rankings/`、`misc/` 键（缺失时前端显示空状态），避免覆盖 Worker 写入的线上数据；GitHub Trending 抓取增加 12s 超时，避免单源卡住整批任务。
 - 内容发布到生产 R2：新增 `pnpm content:publish`（经 S3 API / `aws4fetch` 并行上传，按 `_local/manifest.json` 清理旧对象，不碰 `rankings/`、`misc/`）；无 S3 密钥时可回退用 `CLOUDFLARE_API_TOKEN` + wrangler。
 - **修正 R2 桶名**：`ic-aiming-content` → `icaiming-content`（Pages 与聚合 Worker 的 `wrangler.toml`、发布脚本默认值），此前命名不一致会导致生产读写与发布失败。
+- 新增本地管理页 `pnpm admin`（127.0.0.1:4400，回环 + Host/Origin 校验 + 会话令牌）：文章编辑（含 Markdown 实时预览）、资源收藏/下载/项目/资料/简历表单、媒体库（上传、引用扫描、同名自动序号、ASCII 文件名）、回收站（`.trash/` 可恢复），以及等价 `content:check` / `content:publish` 的校验与发布按钮（二次确认、日志回显、凭据仅服务端读取）。写入全部落在内容仓库，本地 R2 仍由 `pnpm dev` 监听同步；`rankings/`、`misc/`、`posts/index.json` 不可写。
+- 发布导入器 `contentTypes` 补充 `.jpeg`、`.gif`、`.avif`、`.ico`、`.zip`、`.7z`、`.txt`，上传的常见文件类型不再以 octet-stream 提供。
+- 新增 `tests/admin.test.ts`（路径守卫、上传目标解析、原子写入、回收站、引用扫描等）。
+- 工作区根目录新增 `启动管理页.cmd`：双击即启动管理页（检测 4321 端口，本地站点未运行时先拉起 `pnpm dev` 窗口，浏览器自动打开管理页；参数透传给 `pnpm admin`）。
+- 管理页新增「发布凭据」面板：可直接粘贴 R2 令牌的 Access Key ID 与 Secret Access Key，合并写入 `icaiming/.dev.vars`（保留其他行、不回显已保存值），当前会话立即生效，适配 R2 令牌到期轮换；`POST /api/credentials` 仅限本机会话令牌访问。
+- 发布改为增量：`content:publish` 逐对象 HEAD 比对 ETag/MD5，未变更对象不再重传并跳过 manifest 重写，完成后输出「新增/更新/跳过/删除」汇总，无变更时不写入任何对象；管理页「发布到生产 R2」同步显示该汇总（wrangler 回退路径标注无变更检测）。
+- 管理页条目编辑器交互修复：新增条目自动滚动定位并聚焦（高亮反馈）、必填与链接/日期格式的就地中文校验与错误定位高亮（服务端 zod 错误映射回对应条目）、未保存修改在切换页签/关闭页面前确认与保存按钮脏标记、移动按钮边界禁用、工具栏吸顶、下载条目内直接上传文件并自动填入路径与大小。
+
+### 变更
+
+- `/fun/focus` 聚焦练习由手动轨道控件改为限时 60 秒点小球：小球随时间变小、存活变短；统计命中、命中率、平均与最快反应；最佳成绩存入 `localStorage`（`focus-best`），按命中数、同分看平均反应。游戏逻辑拆为纯函数模块 `src/lib/focus-drill.ts`，并新增 `tests/focus-drill.test.ts`。
+- `/fun` 页头采用 `PageLayout` 的 `heroHead` 变体：英文 `Play` 作大标题、「玩点不一样的」作强调色副标题，与首页 Hero 排版一致；生命游戏画布铺满整个页头区域并向外略微扩展，边缘羽化，不透明度由 0.34 提高到 0.5，格子大小不变。
+- `/fun/answerbook` 答案之书改为上下结构：全宽书页卡片，页眉细分隔线，答案使用显式宋体字体栈，按钮文字与箭头间距恢复正常，状态行为空时不占位。
+- 滚动虚化强度增强：模糊上限由 6px 提高到 12px，过渡带加宽到 18%（全站共用，首页同样生效）。
+
+- `/fun` 改为全屏首屏：生命游戏铺满视口（扣除导航高度），中央为 `Play` 大标题与副标题，底部向下箭头平滑滚动到「实验目录」。
+- `/fun` 实验目录改为行式列表：序号、标题、描述、状态与标签；搜索框匹配标题、描述与标签（多词需全部命中），关键词同步到 `?q=`，无 JavaScript 时列表完整可见。实验条目与搜索逻辑位于 `src/lib/experiments.ts`，测试位于 `tests/experiments.test.ts`。
+
+### 移除
+
+- `PageLayout` 的 `heroHead` 与 `softenLead` 变体（仅好玩页使用，现已不再需要）。
+- 内容仓库 `icaiming-content/rankings/.gitkeep`：`rankings/` 前缀由聚合 Worker 独占，不应存在于内容仓库。
+- 工作区根目录的 `.playwright-cli/` 与 `.dsh-acl-recovery/`。
+
+### 文档
+
+- 根 `README.md` §7 明确仓库职责边界：游戏与实验的代码及条目硬编码在 `icaiming/`，内容仓库只保存需人工维护的数据；修正测试用例数（41）与好玩页描述。
+- `icaiming-content/README.md` 说明游戏条目不在本仓库，`BrandMark.astro` 为品牌标识的唯一来源。
 
 ### 计划中
 
