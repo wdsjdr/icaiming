@@ -6,14 +6,15 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { EnvHttpProxyAgent, setGlobalDispatcher } from 'undici';
-import { prepareContent, publishContent } from '../content';
+import { compareContent, prepareContent, publishContent } from '../content';
 import { renderMarkdown } from '../../src/server/markdown';
 import * as store from './lib';
 import * as aggregator from './aggregator';
 
-// Node's fetch ignores the Windows system proxy. Outbound proxy comes from HTTPS_PROXY/HTTP_PROXY in the
-// environment, or from HTTPS_PROXY in icaiming/.env (read at startup; restart the admin after editing).
-// Local addresses always bypass the proxy so the site probe on 127.0.0.1 keeps working.
+// Node's fetch ignores the Windows system proxy. The admin server's own outbound requests use the proxy
+// from HTTPS_PROXY/HTTP_PROXY in the environment, or from HTTPS_PROXY in icaiming/.env (read at startup;
+// restart the admin after editing). It is applied to this process's fetch only and never exported to child
+// processes (wrangler deploy / secret put). Local addresses bypass the proxy so the 127.0.0.1 probe works.
 const icaimingDir = fileURLToPath(new URL('../../', import.meta.url));
 const dotenvText = (() => {
   try {
@@ -31,12 +32,13 @@ try {
 }
 const proxyDisplay = outboundProxy ? aggregator.maskProxy(outboundProxy.url) : null;
 if (outboundProxy) {
-  process.env.HTTPS_PROXY = outboundProxy.url;
-  if (!process.env.NO_PROXY && !process.env.no_proxy) process.env.NO_PROXY = '127.0.0.1,localhost,::1';
-  setGlobalDispatcher(new EnvHttpProxyAgent());
-  console.log(`[admin] 出站代理：${proxyDisplay}（来源：${outboundProxy.source}）`);
+  // The .env proxy applies only to the admin server's own fetch (aggregator calls, S3 publish).
+  // It is passed to the dispatcher explicitly instead of process.env so spawned children
+  // (wrangler deploy / secret put) never inherit it: a stale or stopped proxy cannot break a deploy.
+  setGlobalDispatcher(new EnvHttpProxyAgent({ httpProxy: outboundProxy.url, httpsProxy: outboundProxy.url, noProxy: '127.0.0.1,localhost,::1' }));
+  console.log(`[admin] 管理页出站代理：${proxyDisplay}（来源：${outboundProxy.source}）；部署子进程不继承，仅跟随系统 HTTPS_PROXY`);
 } else {
-  console.log('[admin] 未配置出站代理，直连 Cloudflare（如不通，请在 icaiming/.env 设置 HTTPS_PROXY）');
+  console.log('[admin] 未配置出站代理，管理页直连 Cloudflare（如不通，请在 icaiming/.env 设置 HTTPS_PROXY）');
 }
 
 const icaimingRoot = fileURLToPath(new URL('../../', import.meta.url));
@@ -276,8 +278,15 @@ async function handle(req: IncomingMessage, res: ServerResponse, url: URL): Prom
   }
 
   if (path === '/api/publish' && method === 'POST') {
-    const result = await runCaptured(() => publishContent());
+    // refreshEnv: use the on-disk credentials, not a value the running admin cached earlier.
+    const result = await runCaptured(() => publishContent({ refreshEnv: true }));
     sendJson(res, 200, { ok: result.ok, logs: result.logs, error: result.error, summary: result.value ?? null });
+    return true;
+  }
+
+  if (path === '/api/compare' && method === 'POST') {
+    const result = await runCaptured(() => compareContent({ refreshEnv: true }));
+    sendJson(res, 200, { ok: result.ok, compare: result.value ?? null, logs: result.logs, error: result.error });
     return true;
   }
 

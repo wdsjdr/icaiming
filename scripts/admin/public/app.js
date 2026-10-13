@@ -268,6 +268,70 @@ async function runPipeline(endpoint, label) {
   }
 }
 
+// Publishes importer-managed content to production R2 without relying on the overview log panel,
+// so any tab's「保存并发布」can reuse it. Returns true only when the publish succeeded.
+async function publishToR2(label) {
+  const info = await refreshHeader();
+  if (info && !(info.credentials.s3 || info.credentials.wrangler)) {
+    toast('未配置发布凭据，请先在「概览 → 发布凭据」设置', 'error');
+    return false;
+  }
+  try {
+    const result = await api('/api/publish', { json: {} });
+    if (!result.ok) { toast(`发布失败：${result.error}`, 'error'); return false; }
+    const summary = result.summary;
+    if (summary && summary.mode === 's3') {
+      const changed = summary.added + summary.updated + summary.removed;
+      toast(changed
+        ? `已保存并发布：新增 ${summary.added} · 更新 ${summary.updated} · 跳过 ${summary.skipped} · 删除 ${summary.removed}`
+        : `已保存；无变更：${summary.skipped} 个对象已是最新`);
+    } else if (summary && summary.mode === 'wrangler') {
+      toast(`已保存并发布：上传 ${summary.added} 个对象（wrangler 回退路径）`);
+    } else {
+      toast(`已保存并发布${label ? `：${label}` : ''}`);
+    }
+    return true;
+  } catch (error) {
+    toast(`发布失败：${error.message}`, 'error');
+    return false;
+  }
+}
+
+// After a delete, offer to push the removal to production R2 so the live site stays in sync.
+async function publishAfterDelete() {
+  if (!confirm('已移入回收站。是否立即发布到生产 R2，让线上同步删除？')) return;
+  await publishToR2();
+}
+
+// Shows the drift between local content and production R2 (what a publish would add or remove).
+async function compareProduction() {
+  const log = document.getElementById('pipeline-log');
+  log.hidden = false;
+  log.textContent = '对比中…';
+  const buttons = [...document.querySelectorAll('button.btn')];
+  buttons.forEach((button) => { button.disabled = true; });
+  try {
+    const result = await api('/api/compare', { json: {} });
+    if (!result.ok) { log.textContent = result.error || '对比失败'; toast(`对比失败：${result.error || ''}`, 'error'); return; }
+    const { missing, orphan, localCount, remoteCount } = result.compare;
+    const section = (title, keys) => keys.length ? `${title}（${keys.length}）：\n  ${keys.join('\n  ')}` : `${title}：无`;
+    log.textContent = [
+      `本地对象 ${localCount} · 生产对象（受管）${remoteCount}`,
+      section('缺失（本地有、生产无，发布后会补上）', missing),
+      section('多余（本地无、生产有，发布后会删除）', orphan),
+    ].join('\n\n');
+    const drift = missing.length + orphan.length;
+    toast(drift ? `生产与本地不一致：缺失 ${missing.length}、多余 ${orphan.length}` : '生产与本地一致', drift ? 'error' : 'ok');
+  } catch (error) {
+    log.textContent = error.message;
+    toast(error.message, 'error');
+  } finally {
+    buttons.forEach((button) => { button.disabled = false; });
+    const info = await refreshHeader();
+    if (info) syncCloudflareButtons(info);
+  }
+}
+
 function syncCloudflareButtons(info) {
   const ready = Boolean(info.cloudflare && info.cloudflare.apiToken);
   for (const id of ['cf-deploy', 'cf-set-run-token']) {
@@ -327,9 +391,10 @@ views.overview = async (view) => {
     </div>
     <div class="panel">
       <h2 style="margin-top:0">校验与发布</h2>
-      <p class="muted">校验使用与 <code>pnpm content:check</code> 相同的管线；发布等价 <code>pnpm content:publish</code>，只处理人工内容，永不触碰 rankings/ 与 misc/。</p>
+      <p class="muted">校验使用与 <code>pnpm content:check</code> 相同的管线；发布等价 <code>pnpm content:publish</code>，只处理人工内容，永不触碰 rankings/ 与 misc/。「对比生产 R2」列出本地与线上的差异（缺失 / 多余）；发布按列桶镜像，删除的内容会在发布后从线上移除。</p>
       <div class="row">
         <button class="btn" id="btn-validate">校验全部内容</button>
+        <button class="btn" id="btn-compare">对比生产 R2</button>
         <button class="btn primary" id="btn-publish" ${info.credentials.s3 || info.credentials.wrangler ? '' : 'disabled'}>发布到生产 R2</button>
         <span class="muted">${esc(credentials)}</span>
       </div>
@@ -350,6 +415,7 @@ views.overview = async (view) => {
     <div class="panel">
       <h2 style="margin-top:0">Cloudflare 部署（聚合 Worker）</h2>
       <p class="muted">部署 <code>ic-aiming-aggregator</code> 并设置其 <code>RUN_TOKEN</code>。API 令牌权限建议为 Account · Workers Scripts · Edit，范围限定本账户。令牌只保存在本管理页进程的内存中，不写入磁盘、不回显；关闭管理页后需重新输入。</p>
+      <p class="muted">部署与设置令牌通过 wrangler 连接 Cloudflare，只跟随系统环境变量里的代理（<code>HTTPS_PROXY</code>），不读取 <code>icaiming/.env</code> 的代理配置。</p>
       <div class="grid-2">
         <label class="field"><span>Cloudflare API 令牌</span><input id="cf-token" type="password" class="code" autocomplete="new-password" spellcheck="false" placeholder="${info.cloudflare.apiToken ? '已验证并保存在内存中 · 粘贴新值可替换' : '粘贴 API 令牌'}"></label>
       </div>
@@ -379,6 +445,7 @@ views.overview = async (view) => {
     </div>
   `;
   document.getElementById('btn-validate').onclick = () => runPipeline('/api/validate', '校验');
+  document.getElementById('btn-compare').onclick = () => compareProduction();
   document.getElementById('btn-publish').onclick = () => {
     if (!confirm('确定发布到生产 R2（icaiming-content 桶）？将先全量校验，再上传人工内容并清理清单内旧对象。')) return;
     runPipeline('/api/publish', '发布');
@@ -564,6 +631,7 @@ views.posts = async (view) => {
         await api(`/api/posts/${encodeURIComponent(slug)}`, { method: 'DELETE' });
         toast('已移入回收站');
         await views.posts(view);
+        await publishAfterDelete();
       });
     };
   });
@@ -580,7 +648,8 @@ async function openPostEditor(view, slug) {
       <h1 style="margin:0">${isNew ? '新建文章' : `编辑：${esc(slug)}`}</h1>
       <div class="spacer"></div>
       <button class="btn" id="post-back">返回列表</button>
-      <button class="btn primary" id="post-save">保存</button>
+      <button class="btn" id="post-save">保存</button>
+      <button class="btn primary" id="post-save-publish">保存并发布</button>
     </div>
     <div class="panel">
       <div class="grid-2">
@@ -624,7 +693,7 @@ async function openPostEditor(view, slug) {
   };
   bodyElement.addEventListener('input', () => { clearTimeout(previewTimer); previewTimer = setTimeout(updatePreview, 500); });
   updatePreview();
-  document.getElementById('post-save').onclick = async () => {
+  const savePost = async () => await act(async () => {
     const payload = {
       meta: {
         title: val('post-title'),
@@ -635,19 +704,28 @@ async function openPostEditor(view, slug) {
       },
       body: bodyElement.value,
     };
-    const result = await act(async () => {
-      if (isNew) await api('/api/posts', { json: { slug: val('post-slug'), ...payload } });
-      else await api(`/api/posts/${encodeURIComponent(slug)}`, { method: 'PUT', json: payload });
-      return true;
-    });
-    if (result) { markClean(); toast('已保存'); await views.posts(view); }
+    if (isNew) await api('/api/posts', { json: { slug: val('post-slug'), ...payload } });
+    else await api(`/api/posts/${encodeURIComponent(slug)}`, { method: 'PUT', json: payload });
+    return true;
+  });
+  document.getElementById('post-save').onclick = async () => {
+    if (!(await savePost())) return;
+    markClean();
+    toast('已保存');
+    await views.posts(view);
+  };
+  document.getElementById('post-save-publish').onclick = async () => {
+    if (!(await savePost())) return;
+    markClean();
+    await publishToR2('文章');
+    await views.posts(view);
   };
 }
 
 function renderRawPost(view, slug, doc) {
   view.innerHTML = `
     <div class="toolbar"><h1 style="margin:0">编辑（原始模式）：${esc(slug)}</h1><div class="spacer"></div>
-      <button class="btn" id="post-back">返回列表</button><button class="btn primary" id="post-save">保存</button></div>
+      <button class="btn" id="post-back">返回列表</button><button class="btn" id="post-save">保存</button><button class="btn primary" id="post-save-publish">保存并发布</button></div>
     <p class="badge danger">当前文件校验失败：${esc(doc.error)}</p>
     <textarea id="post-raw" class="code" style="min-height:480px">${esc(doc.raw)}</textarea>`;
   document.getElementById('post-back').onclick = () => {
@@ -655,26 +733,42 @@ function renderRawPost(view, slug, doc) {
     markClean();
     views.posts(view);
   };
+  const saveRaw = async () => await act(async () => {
+    await api(`/api/posts/${encodeURIComponent(slug)}`, { method: 'PUT', json: { raw: document.getElementById('post-raw').value } });
+    return true;
+  });
   document.getElementById('post-save').onclick = async () => {
-    const result = await act(async () => {
-      await api(`/api/posts/${encodeURIComponent(slug)}`, { method: 'PUT', json: { raw: document.getElementById('post-raw').value } });
-      return true;
-    });
-    if (result) { markClean(); toast('已保存'); await views.posts(view); }
+    if (!(await saveRaw())) return;
+    markClean();
+    toast('已保存');
+    await views.posts(view);
+  };
+  document.getElementById('post-save-publish').onclick = async () => {
+    if (!(await saveRaw())) return;
+    markClean();
+    await publishToR2('文章');
+    await views.posts(view);
   };
 }
 
 function renderRawCollection(view, id, data) {
   view.innerHTML = `
-    <div class="toolbar"><h1 style="margin:0">${esc(COLLECTION_LABELS[id] || id)}（原始 JSON）</h1><div class="spacer"></div><button class="btn primary" id="save-raw">保存</button></div>
+    <div class="toolbar"><h1 style="margin:0">${esc(COLLECTION_LABELS[id] || id)}（原始 JSON）</h1><div class="spacer"></div><button class="btn" id="save-raw">保存</button><button class="btn primary" id="save-raw-publish">保存并发布</button></div>
     <p class="badge danger">当前文件校验失败：${esc(data.error)}</p>
     <textarea id="raw" class="code" style="min-height:420px">${esc(data.raw)}</textarea>`;
+  const saveRawCollection = async () => await act(async () => {
+    await api(`/api/collections/${id}`, { method: 'PUT', json: { raw: document.getElementById('raw').value } });
+    return true;
+  });
   document.getElementById('save-raw').onclick = async () => {
-    const result = await act(async () => {
-      await api(`/api/collections/${id}`, { method: 'PUT', json: { raw: document.getElementById('raw').value } });
-      return true;
-    });
-    if (result) { toast('已保存'); await selectTab(state.tab); }
+    if (!(await saveRawCollection())) return;
+    toast('已保存');
+    await selectTab(state.tab);
+  };
+  document.getElementById('save-raw-publish').onclick = async () => {
+    if (!(await saveRawCollection())) return;
+    await publishToR2(COLLECTION_LABELS[id] || id);
+    await selectTab(state.tab);
   };
 }
 
@@ -691,7 +785,8 @@ async function renderItems(view, id) {
       <h1 style="margin:0">${esc(COLLECTION_LABELS[id])}</h1>
       <div class="spacer"></div>
       <button class="btn" id="add-item">添加条目</button>
-      <button class="btn primary" id="save-items">保存</button>
+      <button class="btn" id="save-items">保存</button>
+      <button class="btn primary" id="save-items-publish">保存并发布</button>
     </div>
     <p class="muted">共 ${data.value.items.length} 条，顺序即前台展示顺序；修改后点击保存生效。</p>
     <div id="items"></div>
@@ -720,7 +815,7 @@ async function renderItems(view, id) {
       element.remove();
       refreshMoveButtons();
       markDirty();
-      toast('已移出列表，点击保存后生效');
+      toast('已移出列表，点「保存」或「保存并发布」后生效');
     };
     element.querySelector('[data-move="up"]').onclick = () => {
       const previous = element.previousElementSibling;
@@ -767,12 +862,12 @@ async function renderItems(view, id) {
   data.value.items.forEach((item) => addCard(item));
   refreshMoveButtons();
   document.getElementById('add-item').onclick = () => addCard({}, { focus: true });
-  document.getElementById('save-items').onclick = async () => {
+  const saveItems = async () => {
     const issues = itemIssues(container, config);
     if (issues.length) {
       showIssues(container, issues);
       toast(`有 ${issues.length} 处需要修正，已在列表中标记`, 'error');
-      return;
+      return false;
     }
     const items = [...container.querySelectorAll('[data-item]')].map((element) => {
       const item = {};
@@ -794,10 +889,19 @@ async function renderItems(view, id) {
       } else {
         toast(error.message, 'error');
       }
-      return;
+      return false;
     }
     markClean();
+    return true;
+  };
+  document.getElementById('save-items').onclick = async () => {
+    if (!(await saveItems())) return;
     toast('已保存');
+    await renderItems(view, id);
+  };
+  document.getElementById('save-items-publish').onclick = async () => {
+    if (!(await saveItems())) return;
+    await publishToR2(COLLECTION_LABELS[id] || id);
     await renderItems(view, id);
   };
 }
@@ -832,17 +936,17 @@ views.profile = async (view) => {
           <label class="field"><span>${id} 链接</span><input data-social-url="${id}" value="${esc(social.url)}"></label>
         </div>`;
       }).join('')}
-      <div class="row" style="justify-content:flex-end"><button class="btn primary" id="save-profile">保存资料</button></div>
+      <div class="row" style="justify-content:flex-end"><button class="btn" id="save-profile">保存资料</button><button class="btn primary" id="save-profile-publish">保存并发布</button></div>
     </div>
     <div class="panel">
       <h2 style="margin-top:0">首页文案 site/home.json</h2>
       <label class="field"><span>小标题 eyebrow</span><input id="hm-eyebrow" value="${esc(homeValue.eyebrow)}"></label>
       <label class="field"><span>引导文案</span><textarea id="hm-introduction">${esc(homeValue.introduction)}</textarea></label>
       <label class="field"><span>状态行</span><input id="hm-status" value="${esc(homeValue.status)}"></label>
-      <div class="row" style="justify-content:flex-end"><button class="btn primary" id="save-home">保存首页</button></div>
+      <div class="row" style="justify-content:flex-end"><button class="btn" id="save-home">保存首页</button><button class="btn primary" id="save-home-publish">保存并发布</button></div>
     </div>
   `;
-  document.getElementById('save-profile').onclick = async () => {
+  const saveProfile = async () => await act(async () => {
     const value = {
       name: val('pf-name'),
       tagline: val('pf-tagline'),
@@ -854,19 +958,33 @@ views.profile = async (view) => {
         return { id, label: document.querySelector(`[data-social-label="${id}"]`).value.trim() || id, url };
       }).filter(Boolean),
     };
-    const result = await act(async () => {
-      await api('/api/collections/profile', { method: 'PUT', json: { value } });
-      return true;
-    });
-    if (result) { markClean(); toast('资料已保存'); }
+    await api('/api/collections/profile', { method: 'PUT', json: { value } });
+    return true;
+  });
+  document.getElementById('save-profile').onclick = async () => {
+    if (!(await saveProfile())) return;
+    markClean();
+    toast('资料已保存');
   };
-  document.getElementById('save-home').onclick = async () => {
+  document.getElementById('save-profile-publish').onclick = async () => {
+    if (!(await saveProfile())) return;
+    markClean();
+    await publishToR2('个人资料');
+  };
+  const saveHome = async () => await act(async () => {
     const value = { eyebrow: val('hm-eyebrow'), introduction: val('hm-introduction'), status: val('hm-status') };
-    const result = await act(async () => {
-      await api('/api/collections/home', { method: 'PUT', json: { value } });
-      return true;
-    });
-    if (result) { markClean(); toast('首页文案已保存'); }
+    await api('/api/collections/home', { method: 'PUT', json: { value } });
+    return true;
+  });
+  document.getElementById('save-home').onclick = async () => {
+    if (!(await saveHome())) return;
+    markClean();
+    toast('首页文案已保存');
+  };
+  document.getElementById('save-home-publish').onclick = async () => {
+    if (!(await saveHome())) return;
+    markClean();
+    await publishToR2('首页文案');
   };
 };
 
@@ -902,7 +1020,7 @@ views.resume = async (view) => {
       <div id="rs-edu"></div>
       <button class="btn" id="rs-edu-add">添加教育</button>
     </div>
-    <div class="row" style="justify-content:flex-end"><button class="btn primary" id="rs-save">保存简历</button></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn" id="rs-save">保存简历</button><button class="btn primary" id="rs-save-publish">保存并发布</button></div>
   `;
   const expContainer = document.getElementById('rs-exp');
   const eduContainer = document.getElementById('rs-edu');
@@ -943,26 +1061,33 @@ views.resume = async (view) => {
     document.getElementById('rs-pdf').textContent = '未设置';
     toast('已清除引用，保存后生效');
   };
+  const collect = (container) => [...container.querySelectorAll('[data-item]')].map((element) => ({
+    title: element.querySelector('[data-key="title"]').value.trim(),
+    organization: element.querySelector('[data-key="organization"]').value.trim(),
+    period: element.querySelector('[data-key="period"]').value.trim(),
+    description: element.querySelector('[data-key="description"]').value.trim(),
+  }));
+  const saveResume = async () => await act(async () => {
+    await api('/api/collections/resume', { method: 'PUT', json: { value: {
+      name: val('rs-name'),
+      title: val('rs-title'),
+      summary: document.getElementById('rs-summary').value.trim(),
+      skills: parseTags(document.getElementById('rs-skills').value),
+      experience: collect(expContainer),
+      education: collect(eduContainer),
+      pdf,
+    } } });
+    return true;
+  });
   document.getElementById('rs-save').onclick = async () => {
-    const collect = (container) => [...container.querySelectorAll('[data-item]')].map((element) => ({
-      title: element.querySelector('[data-key="title"]').value.trim(),
-      organization: element.querySelector('[data-key="organization"]').value.trim(),
-      period: element.querySelector('[data-key="period"]').value.trim(),
-      description: element.querySelector('[data-key="description"]').value.trim(),
-    }));
-    const result = await act(async () => {
-      await api('/api/collections/resume', { method: 'PUT', json: { value: {
-        name: val('rs-name'),
-        title: val('rs-title'),
-        summary: document.getElementById('rs-summary').value.trim(),
-        skills: parseTags(document.getElementById('rs-skills').value),
-        experience: collect(expContainer),
-        education: collect(eduContainer),
-        pdf,
-      } } });
-      return true;
-    });
-    if (result) { markClean(); toast('简历已保存'); }
+    if (!(await saveResume())) return;
+    markClean();
+    toast('简历已保存');
+  };
+  document.getElementById('rs-save-publish').onclick = async () => {
+    if (!(await saveResume())) return;
+    markClean();
+    await publishToR2('简历');
   };
 };
 
@@ -1027,6 +1152,7 @@ views.media = async (view) => {
         await api(`/api/media?path=${encodeURIComponent(button.dataset.delete)}`, { method: 'DELETE' });
         toast('已移入回收站');
         await views.media(view);
+        await publishAfterDelete();
       });
     };
   });

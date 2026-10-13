@@ -239,6 +239,7 @@ test('publish diff skips unchanged objects and re-uploads mismatched or multipar
   assert.equal(md5Hex(Buffer.from('hello')), digest);
   assert.equal(remoteAction(digest, { status: 404, etag: null }), 'add');
   assert.equal(remoteAction(digest, { status: 200, etag: `"${digest}"` }), 'skip');
+  assert.equal(remoteAction(digest, { status: 200, etag: `W/"${digest}"` }), 'skip');
   assert.equal(remoteAction(digest, { status: 200, etag: digest.toUpperCase() }), 'skip');
   assert.equal(remoteAction(digest, { status: 200, etag: `"${digest}-2"` }), 'update');
   assert.equal(remoteAction(digest, { status: 200, etag: '"00000000000000000000000000000000"' }), 'update');

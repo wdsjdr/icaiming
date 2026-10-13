@@ -125,30 +125,82 @@ export function md5Hex(body: string | Buffer) {
 // (with a "-N" suffix) and any mismatch always require a fresh upload.
 export function remoteAction(localMd5: string, remote: { status: number; etag: string | null }): 'add' | 'update' | 'skip' {
   if (remote.status === 404) return 'add';
-  const etag = (remote.etag ?? '').trim().replace(/^"+|"+$/g, '').toLowerCase();
+  // R2 answers GET/HEAD with a weak ETag (W/"<md5>") while the S3 list form drops the W/ marker,
+  // so strip the optional weak prefix before comparing with the local content hash.
+  const etag = (remote.etag ?? '').trim().replace(/^W\//i, '').replace(/^"+|"+$/g, '').toLowerCase();
   return etag === localMd5 ? 'skip' : 'update';
+}
+
+// Credentials the admin server may have cached in process.env from an earlier save. Cleared before a
+// refresh so the on-disk files become the single source of truth: a rotated R2 token takes effect
+// without restarting the admin (otherwise a stale value is reused and R2 answers 401).
+const credentialKeys = ['R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_ACCOUNT_ID', 'R2_BUCKET', 'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'];
+export function forgetCredentials() {
+  for (const key of credentialKeys) delete process.env[key];
+}
+
+export async function loadCredentials(options: { refreshEnv?: boolean } = {}) {
+  if (options.refreshEnv) forgetCredentials();
+  await loadEnvFile(resolve(root, '.dev.vars'));
+  await loadEnvFile(resolve(root, '.env'));
 }
 
 // Publish importer-managed content to the production R2 bucket.
 // Prefers the S3 API (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY), falls back to wrangler
 // with a Cloudflare API token (CLOUDFLARE_API_TOKEN). Aggregator-owned prefixes
 // (rankings/, misc/) are never uploaded or pruned here.
-export async function publishContent(): Promise<PublishSummary> {
-  await loadEnvFile(resolve(root, '.dev.vars'));
-  await loadEnvFile(resolve(root, '.env'));
+export async function publishContent(options: { refreshEnv?: boolean } = {}): Promise<PublishSummary> {
+  await loadCredentials(options);
   if (process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY) return publishViaS3();
   if (process.env.CLOUDFLARE_API_TOKEN) return publishViaWrangler();
   throw new Error('缺少 R2 凭据：设置 R2_ACCESS_KEY_ID + R2_SECRET_ACCESS_KEY（S3），或 CLOUDFLARE_API_TOKEN（wrangler）');
 }
 
-async function publishViaS3(): Promise<PublishSummary> {
+function s3Client() {
   const accessKeyId = process.env.R2_ACCESS_KEY_ID!;
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY!;
   const accountId = process.env.R2_ACCOUNT_ID || DEFAULT_R2_ACCOUNT_ID;
   const bucket = process.env.R2_BUCKET || DEFAULT_R2_BUCKET;
-  const objects = await prepareContent(); // Validate everything before changing the bucket.
   const client = new AwsClient({ accessKeyId, secretAccessKey, service: 's3', region: 'auto' });
   const base = `https://${accountId}.r2.cloudflarestorage.com/${bucket}`;
+  return { client, base, bucket };
+}
+
+// A 401/403 from R2 almost always means a stale or expired token, not a content problem, so say so.
+function s3Error(key: string, status: number, body: string): Error {
+  if (status === 401 || status === 403) {
+    return new Error(`R2 拒绝访问（${status}，对象 ${key}）：令牌无效、已过期或没有写权限。请在「概览 → 发布凭据」重新保存 R2 的 Access Key ID 与 Secret Access Key（令牌需 Object Read & Write，范围限桶）。`);
+  }
+  return new Error(`上传失败 ${key}：${status} ${body}`);
+}
+
+function decodeXml(value: string): string {
+  return value.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+}
+
+async function listRemoteKeys(client: AwsClient, base: string): Promise<string[]> {
+  const keys: string[] = [];
+  let token = '';
+  do {
+    const url = `${base}/?list-type=2&max-keys=1000${token ? `&continuation-token=${encodeURIComponent(token)}` : ''}`;
+    const response = await client.fetch(url);
+    if (!response.ok) throw new Error(`读取 R2 对象列表失败：${response.status} ${await response.text()}`);
+    const xml = await response.text();
+    for (const match of xml.matchAll(/<Key>([^<]+)<\/Key>/g)) keys.push(decodeXml(match[1]));
+    token = /<NextContinuationToken>([^<]+)<\/NextContinuationToken>/.exec(xml)?.[1] ?? '';
+  } while (token);
+  return keys;
+}
+
+// Objects the importer owns: never the Worker-managed prefixes, never the internal _local/ marker.
+function importerOwned(key: string): boolean {
+  return !protectedPrefixes.some((prefix) => key.startsWith(prefix)) && !key.startsWith('_local/');
+}
+
+async function publishViaS3(): Promise<PublishSummary> {
+  const { client, base, bucket } = s3Client();
+  const objects = await prepareContent(); // Validate everything before changing the bucket.
   const objectUrl = (key: string) => `${base}/${key.split('/').map(encodeURIComponent).join('/')}`;
   const summary: PublishSummary = { mode: 's3', added: 0, updated: 0, skipped: 0, removed: 0 };
   const syncObject = async (key: string, body: string | Buffer, contentType: string) => {
@@ -162,30 +214,51 @@ async function publishViaS3(): Promise<PublishSummary> {
       ? body
       : body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as unknown as ArrayBuffer;
     const response = await client.fetch(objectUrl(key), { method: 'PUT', headers: { 'content-type': contentType }, body: payload });
-    if (!response.ok) throw new Error(`上传失败 ${key}：${response.status} ${await response.text()}`);
+    if (!response.ok) throw s3Error(key, response.status, await response.text());
     if (action === 'add') summary.added += 1;
     else summary.updated += 1;
     console.log(action === 'add' ? `[publish] 新增 ${key}` : `[publish] 更新 ${key}`);
   };
-  const manifest = await client.fetch(objectUrl('_local/manifest.json'));
-  const manifestText = await manifest.text();
-  const oldKeys = manifest.ok ? z.array(z.string()).parse(JSON.parse(manifestText || '[]')) : [];
   for (const [key, body] of objects) await syncObject(key, body, contentTypes[extname(key)] ?? 'application/octet-stream');
-  for (const key of oldKeys) {
-    if (objects.has(key) || protectedPrefixes.some((prefix) => key.startsWith(prefix))) continue;
+  // Mirror deletions: remove any importer-owned object still on R2 that no longer exists locally.
+  // The bucket listing is authoritative here, so a deleted article/media actually disappears even
+  // if the manifest is stale or missing.
+  for (const key of await listRemoteKeys(client, base)) {
+    if (objects.has(key) || !importerOwned(key)) continue;
     const response = await client.fetch(objectUrl(key), { method: 'DELETE' });
     if (response.ok || response.status === 404) { console.log(`[publish] 清理旧对象 ${key}`); summary.removed++; }
   }
   const manifestBody = JSON.stringify([...objects.keys()]);
+  const manifest = await client.fetch(objectUrl('_local/manifest.json'));
   if (remoteAction(md5Hex(manifestBody), { status: manifest.status, etag: manifest.headers.get('etag') }) !== 'skip') {
     const response = await client.fetch(objectUrl('_local/manifest.json'), { method: 'PUT', headers: { 'content-type': 'application/json' }, body: manifestBody });
-    if (!response.ok) throw new Error(`上传失败 _local/manifest.json：${response.status} ${await response.text()}`);
+    if (!response.ok) throw s3Error('_local/manifest.json', response.status, await response.text());
   }
   const changed = summary.added + summary.updated + summary.removed;
   console.log(changed
     ? `[publish] 已发布到 R2 桶 ${bucket}：新增 ${summary.added}、更新 ${summary.updated}、跳过 ${summary.skipped}、删除 ${summary.removed}`
     : `[publish] 无变更：${summary.skipped} 个对象已是最新，未写入 R2 桶 ${bucket}`);
   return summary;
+}
+
+export interface CompareSummary { missing: string[]; orphan: string[]; localCount: number; remoteCount: number }
+
+// Compares local content with the production bucket (S3 credentials required). `missing` lists local
+// objects absent from R2 (a publish would upload them); `orphan` lists importer-owned R2 objects with
+// no local counterpart (a publish would delete them) — exactly the drift "校验全部内容" cannot see.
+export async function compareContent(options: { refreshEnv?: boolean } = {}): Promise<CompareSummary> {
+  await loadCredentials(options);
+  if (!(process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY)) {
+    throw new Error('对比生产 R2 需要 S3 凭据：请先在「概览 → 发布凭据」设置 R2_ACCESS_KEY_ID 与 R2_SECRET_ACCESS_KEY');
+  }
+  const { client, base } = s3Client();
+  const objects = await prepareContent();
+  const localKeys = new Set(objects.keys());
+  const remoteKeys = (await listRemoteKeys(client, base)).filter(importerOwned);
+  const remoteSet = new Set(remoteKeys);
+  const missing = [...localKeys].filter((key) => !remoteSet.has(key)).sort();
+  const orphan = remoteKeys.filter((key) => !localKeys.has(key)).sort();
+  return { missing, orphan, localCount: localKeys.size, remoteCount: remoteSet.size };
 }
 
 async function publishViaWrangler(): Promise<PublishSummary> {
