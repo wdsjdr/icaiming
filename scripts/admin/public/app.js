@@ -200,7 +200,7 @@ async function refreshHeader() {
 }
 
 const TABS = [
-  ['overview', '概览'], ['posts', '文章'], ['resources', '资源收藏'], ['downloads', '下载'],
+  ['overview', '概览'], ['aggregator', '聚合任务'], ['posts', '文章'], ['resources', '资源收藏'], ['downloads', '下载'],
   ['projects', '项目'], ['profile', '资料与首页'], ['resume', '简历'], ['media', '媒体库'], ['trash', '回收站'],
 ];
 
@@ -264,6 +264,37 @@ async function runPipeline(endpoint, label) {
     const info = await refreshHeader();
     const publishButton = document.getElementById('btn-publish');
     if (publishButton && info && !(info.credentials.s3 || info.credentials.wrangler)) publishButton.disabled = true;
+    if (info) syncCloudflareButtons(info);
+  }
+}
+
+function syncCloudflareButtons(info) {
+  const ready = Boolean(info.cloudflare && info.cloudflare.apiToken);
+  for (const id of ['cf-deploy', 'cf-set-run-token']) {
+    const button = document.getElementById(id);
+    if (button) button.disabled = !ready;
+  }
+}
+
+async function runCloudflare(label, job) {
+  const log = document.getElementById('cf-log');
+  log.hidden = false;
+  log.textContent = `${label}中…`;
+  const buttons = ['cf-save-token', 'cf-clear-token', 'cf-deploy', 'cf-set-run-token']
+    .map((id) => document.getElementById(id)).filter(Boolean);
+  buttons.forEach((button) => { button.disabled = true; });
+  try {
+    const result = await job();
+    log.textContent = String(result.logs || '').trim() || (result.ok ? '完成，无输出' : '无日志');
+    return result;
+  } catch (error) {
+    log.textContent = error.message;
+    toast(error.message, 'error');
+    return null;
+  } finally {
+    buttons.forEach((button) => { button.disabled = false; });
+    const info = await refreshHeader();
+    if (info) syncCloudflareButtons(info);
   }
 }
 
@@ -317,6 +348,30 @@ views.overview = async (view) => {
       </div>
     </div>
     <div class="panel">
+      <h2 style="margin-top:0">Cloudflare 部署（聚合 Worker）</h2>
+      <p class="muted">部署 <code>ic-aiming-aggregator</code> 并设置其 <code>RUN_TOKEN</code>。API 令牌权限建议为 Account · Workers Scripts · Edit，范围限定本账户。令牌只保存在本管理页进程的内存中，不写入磁盘、不回显；关闭管理页后需重新输入。</p>
+      <div class="grid-2">
+        <label class="field"><span>Cloudflare API 令牌</span><input id="cf-token" type="password" class="code" autocomplete="new-password" spellcheck="false" placeholder="${info.cloudflare.apiToken ? '已验证并保存在内存中 · 粘贴新值可替换' : '粘贴 API 令牌'}"></label>
+      </div>
+      <div class="row">
+        <button class="btn" id="cf-save-token">验证并保存令牌</button>
+        ${info.cloudflare.apiToken ? '<button class="btn" id="cf-clear-token">清除</button>' : ''}
+        <span class="muted">${info.cloudflare.apiToken ? '令牌已就绪（内存）' : '尚未配置令牌'}</span>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn primary" id="cf-deploy" ${info.cloudflare.apiToken ? '' : 'disabled'}>部署聚合 Worker</button>
+        <span class="muted">部署后 4 条定时任务生效，会消耗 UAPI 额度。</span>
+      </div>
+      <div class="grid-2" style="margin-top:14px">
+        <label class="field"><span>RUN_TOKEN（至少 16 个字符）</span><input id="cf-run-token" type="password" class="code" autocomplete="new-password" spellcheck="false" placeholder="粘贴要设置的 RUN_TOKEN"></label>
+      </div>
+      <div class="row">
+        <button class="btn" id="cf-set-run-token" ${info.cloudflare.apiToken ? '' : 'disabled'}>设置 RUN_TOKEN</button>
+        <span class="muted">值只发送给 wrangler 写入 Cloudflare。设置成功后保存在本管理页内存中，供「聚合任务」页使用；不写盘、不回显，须先完成部署。</span>
+      </div>
+      <div id="cf-log" class="log" style="margin-top:12px" hidden></div>
+    </div>
+    <div class="panel">
       <h2 style="margin-top:0">本地站点</h2>
       ${info.siteRunning
         ? `<p>运行中：<a href="${esc(info.siteOrigin)}" target="_blank" rel="noreferrer">${esc(info.siteOrigin)}</a>（保存内容后片刻自动同步）</p>`
@@ -338,7 +393,125 @@ views.overview = async (view) => {
     });
     if (result) { markClean(); toast('凭据已保存到 .dev.vars，立即生效'); await views.overview(view); }
   };
+  document.getElementById('cf-save-token').onclick = async () => {
+    const apiToken = document.getElementById('cf-token').value.trim();
+    if (!apiToken) { toast('请粘贴 Cloudflare API 令牌', 'error'); return; }
+    const result = await runCloudflare('验证令牌', () => api('/api/cloudflare/token', { json: { apiToken } }));
+    if (!result) return;
+    if (result.ok) {
+      toast('令牌已验证，仅保存在本次管理页内存中');
+      await views.overview(view);
+    } else toast(result.error, 'error');
+  };
+  const clearButton = document.getElementById('cf-clear-token');
+  if (clearButton) {
+    clearButton.onclick = async () => {
+      if (!confirm('清除内存中的 Cloudflare API 令牌？')) return;
+      const result = await act(() => api('/api/cloudflare/token', { method: 'DELETE' }));
+      if (result) {
+        toast('已清除 Cloudflare API 令牌');
+        await views.overview(view);
+      }
+    };
+  }
+  document.getElementById('cf-deploy').onclick = async () => {
+    if (!confirm('部署 ic-aiming-aggregator 到 Cloudflare？部署后 4 条定时任务立即生效，会消耗 UAPI 额度。')) return;
+    const result = await runCloudflare('部署聚合 Worker', () => api('/api/cloudflare/deploy-aggregator', { json: {} }));
+    if (result) toast(result.ok ? '聚合 Worker 部署完成' : `部署失败：${result.error}`, result.ok ? 'ok' : 'error');
+  };
+  document.getElementById('cf-set-run-token').onclick = async () => {
+    const input = document.getElementById('cf-run-token');
+    const value = input.value.trim();
+    if (value.length < 16) { toast('RUN_TOKEN 至少 16 个字符', 'error'); return; }
+    if (!confirm('设置聚合 Worker 的 RUN_TOKEN？会覆盖已有值，旧令牌随即失效。')) return;
+    const result = await runCloudflare('设置 RUN_TOKEN', () => api('/api/cloudflare/run-token', { json: { value } }));
+    input.value = '';
+    if (result) toast(result.ok ? 'RUN_TOKEN 已设置，并已保存到内存供聚合任务使用' : `设置失败：${result.error}`, result.ok ? 'ok' : 'error');
+    if (result && result.ok) await views.overview(view);
+  };
 };
+
+const AGG_TASKS = [
+  { id: 'rankings', label: 'GitHub 趋势', desc: '写入 rankings/combined.json，不消耗积分。', cost: 0 },
+  { id: 'hotboard', label: '热榜（5 平台）', desc: '写入 misc/hotboard/*，约消耗 5 积分。', cost: 5 },
+  { id: 'daily-news', label: '每日新闻图', desc: '当日图片已存在则跳过；缺失时消耗约 1 积分。', cost: 1 },
+  { id: 'epic', label: 'Epic 限时免费', desc: '写入 misc/epic-free.json，约消耗 1 积分。', cost: 1 },
+  { id: 'saying', label: '一言池', desc: '写入 misc/saying.json，免费。', cost: 0 },
+];
+
+views.aggregator = async (view) => {
+  const info = await api('/api/state');
+  const ready = Boolean(info.aggregator && info.aggregator.runToken);
+  view.innerHTML = `
+    <h1>聚合任务</h1>
+    <p class="muted">手动执行聚合 Worker（<code>${esc(info.aggregator.url)}</code>）的单个抓取任务，结果直接写入 R2。定时任务由 Cron 自动执行，这里用于补抓或验证。</p>
+    <div class="panel">
+      <h2 style="margin-top:0">RUN_TOKEN</h2>
+      <p class="muted">${ready
+        ? '已就绪，保存在本管理页内存中（关闭管理页后需重新验证）。'
+        : '未就绪。若刚在「概览」设置过，这里会自动就绪；若管理页重启过，请粘贴已设置的 RUN_TOKEN 验证并保存。'}</p>
+      <div class="grid-2">
+        <label class="field"><span>RUN_TOKEN</span><input id="agg-token" type="password" class="code" autocomplete="new-password" spellcheck="false" placeholder="粘贴已设置的 RUN_TOKEN"></label>
+      </div>
+      <div class="row">
+        <button class="btn" id="agg-verify">验证并保存</button>
+        <span class="muted">只向 Worker 发送一次不带任务的请求用于验证，不会执行抓取。</span>
+      </div>
+    </div>
+    <div class="cards">
+      ${AGG_TASKS.map((task) => `<div class="panel">
+        <h2 style="margin-top:0">${esc(task.label)}</h2>
+        <p class="muted">${esc(task.desc)}</p>
+        <button class="btn primary" data-task="${task.id}" ${ready ? '' : 'disabled'}>执行 ${esc(task.id)}</button>
+      </div>`).join('')}
+    </div>
+    <div id="agg-log" class="log" style="margin-top:12px" hidden></div>
+  `;
+  document.getElementById('agg-verify').onclick = async () => {
+    const input = document.getElementById('agg-token');
+    const value = input.value.trim();
+    if (!value) { toast('请粘贴 RUN_TOKEN', 'error'); return; }
+    const result = await act(() => api('/api/aggregator/token', { json: { value } }));
+    input.value = '';
+    if (!result) return;
+    if (result.ok) {
+      toast('RUN_TOKEN 已验证，并保存到内存');
+      await views.aggregator(view);
+    } else toast(result.error, 'error');
+  };
+  view.querySelectorAll('button[data-task]').forEach((button) => {
+    button.onclick = () => {
+      const task = AGG_TASKS.find((entry) => entry.id === button.dataset.task);
+      if (task.cost && !confirm(`执行「${task.label}」将消耗约 ${task.cost} 积分（UAPI 额度），确定继续？`)) return;
+      runAggregatorTask(task.id);
+    };
+  });
+};
+
+async function runAggregatorTask(task) {
+  const log = document.getElementById('agg-log');
+  log.hidden = false;
+  log.textContent = `执行 ${task} 中…（最长约 2 分钟）`;
+  const buttons = [...document.querySelectorAll('button[data-task], #agg-verify')];
+  buttons.forEach((button) => { button.disabled = true; });
+  try {
+    const result = await api('/api/aggregator/run', { json: { task } });
+    if (result.ok) {
+      log.textContent = JSON.stringify(result.results, null, 2);
+      toast(`${task} 完成`);
+    } else {
+      log.textContent = result.error;
+      toast(`${task} 失败：${result.error}`, 'error');
+    }
+  } catch (error) {
+    log.textContent = error.message;
+    toast(error.message, 'error');
+  } finally {
+    buttons.forEach((button) => { button.disabled = false; });
+    const info = await refreshHeader();
+    if (info) syncCloudflareButtons(info);
+  }
+}
 
 function postRow(post) {
   const status = !post.valid ? '<span class="badge danger">校验失败</span>'

@@ -6,11 +6,14 @@ compatibility_date = "2025-10-11"
 binding = "CONTENT_BUCKET"
 bucket_name = "icaiming-content"
 
-# 2 of the 5 cron triggers allowed on the free plan.
-# 0 */6 * * *  → GitHub 趋势 + 热榜（UTC 每 6 小时）
-# 0 1 * * *    → 每日新闻（北京 09:00）+ Epic 限免 + 一言池
+# 4 of the 5 cron triggers allowed on the free plan (keep one spare).
+# Cron times are UTC; the mapping lives in src/index.ts (schedule).
+# 0 */6 * * *  → GitHub 趋势 + 热榜（每 6 小时）
+# 0 1 * * *    → 每日新闻（北京 09:00）+ Epic 限免
+# 30 1 * * *   → 一言池（北京 09:30）
+# 0 5 * * *    → 每日新闻补抓（北京 13:00，当日已存在则跳过）
 [triggers]
-crons = ["0 */6 * * *", "0 1 * * *"]
+crons = ["0 */6 * * *", "0 1 * * *", "30 1 * * *", "0 5 * * *"]
 
 [vars]
 HOTBOARD_PLATFORMS = "bilibili:B站,weibo:微博,toutiao:头条,douyin:抖音,netease-music:网易云音乐"

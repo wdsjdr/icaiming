@@ -39,8 +39,8 @@ pnpm dev
 | `pnpm test` | 内容契约、发布规则、Markdown 安全边界及榜单解析测试 |
 | `pnpm test:local` | 对运行中的 `pnpm dev` 验证内容新增、修改、草稿和无需重建 |
 | `pnpm dev:ui` | 仅 Astro 热更新预览，不启动 Worker/R2；日常完整预览用 `pnpm dev` |
-| `pnpm aggregator:dev` | 本地运行聚合 Worker，`GET /run` 立即执行全部抓取任务 |
-| `pnpm aggregator:deploy` | 部署聚合 Worker（含 6 小时 Cron 与每日任务） |
+| `pnpm aggregator:dev` | 本地运行聚合 Worker，`GET /run?task=<name>` 手动执行单个抓取任务（需令牌） |
+| `pnpm aggregator:deploy` | 部署聚合 Worker（4 条 Cron 触发器，见下文） |
 
 `test:local` 会创建唯一命名的临时文章并在结束后删除；开发服务正在运行时执行。默认访问 `http://127.0.0.1:4321`，可用环境变量 `LOCAL_ORIGIN` 修改。
 
@@ -54,6 +54,9 @@ pnpm dev
 - 「校验全部内容」等价 `content:check`；「发布到生产 R2」等价 `content:publish`（增量上传：未变更对象跳过，完成后汇总新增/更新/跳过/删除），发布前二次确认并回显日志，`.dev.vars` 凭据只在服务端读取。
 - 条目编辑交互：新增条目自动滚动定位并聚焦、必填与链接/日期格式就地中文校验、错误条目定位高亮、未保存修改在切换页签或关闭页面前确认、移动按钮边界禁用、工具栏吸顶；下载条目可在表单内直接上传文件并自动填入路径与大小（新建/编辑文章同样有未保存守卫）。
 - 发布凭据（R2 令牌）可直接在「概览 → 发布凭据」粘贴更新：保存写入 `icaiming/.dev.vars`（合并保留其他行，已 gitignore），当前会话立即生效，适合 R2 令牌到期轮换；已保存的值不会回显。
+- Cloudflare 部署（「概览 → Cloudflare 部署」）：粘贴 API 令牌后先调用 `wrangler whoami` 验证，仅保存在管理页进程内存中（不写盘，关闭管理页即清除，也可手动清除）。可一键部署 `ic-aiming-aggregator`，或设置其 `RUN_TOKEN`（值经 stdin 交给 wrangler，设置成功后同样只保存在内存中）。部署会启用定时任务并消耗 UAPI 额度，均需二次确认。
+- 聚合任务（「聚合任务」页签）：手动执行聚合 Worker 的单个任务（`rankings`、`hotboard`、`daily-news`、`epic`、`saying`），结果以 JSON 显示。需要已就绪的 `RUN_TOKEN`：刚在概览设置过会自动就绪；管理页重启后粘贴已设置的值验证即可（验证只发送一次不带任务的请求，不执行抓取）。消耗积分的任务执行前需确认。Worker 地址默认为 `https://ic-aiming-aggregator.3043927908.workers.dev`，可用环境变量 `AGGREGATOR_URL` 覆盖（只能是域名或源，不能带路径）。
+- 发布到生产 R2 不会改动聚合 Worker 写入的 `rankings/` 与 `misc/`：导入器的内容列表不包含这些前缀，上传与清理都会跳过它们（`tests/admin-aggregator.test.ts` 有对应断言）。
 - 安全约束：仅回环地址 + Host/Origin 校验 + 每次启动的会话令牌；`rankings/`、`misc/`、`posts/index.json` 永不可写；上传默认 50MB 上限（`ADMIN_MAX_UPLOAD_MB` 调整）。
 - Windows 快捷启动：双击工作区根目录的 `启动管理页.cmd`——检测 4321 端口，站点未运行时先开新窗口跑 `pnpm dev`，再启动管理页；额外参数会透传给 `pnpm admin`（如 `--no-open`）。
 
@@ -83,7 +86,7 @@ pnpm dev
 
 `site/profile.json` 管理介绍、邮件和社交账号；`site/home.json` 管理首页介绍；`projects/index.json`、`resources/index.json`、`downloads/index.json`、`resume/resume.json` 管理相应页面。`downloads/index.json` 中的 `file` 必须指向 `assets/` 或 `downloads/` 下已存在的文件，导入时会校验。
 
-`rankings/combined.json`、`misc/hotboard/*`、`misc/epic-free.json`、`misc/saying.json` 由聚合 Worker 直接写入 R2，**内容仓库不包含这些键**（导入器不会上传/删除它们，避免覆盖线上数据）；本地首次需运行 `pnpm aggregator:dev` 并访问 `/run` 抓一次，缺失时前端显示空状态。抓取源为 GitHub Trending 与 UAPI（热榜、Epic 限免需积分、一言免费），可用 `UAPI_KEY` secret 提升额度；积分预算见 [本地实施计划](docs/LOCAL-ROADMAP.md)。
+`rankings/combined.json`、`misc/hotboard/*`、`misc/epic-free.json`、`misc/saying.json` 由聚合 Worker 直接写入 R2，**内容仓库不包含这些键**（导入器不会上传/删除它们，避免覆盖线上数据）；本地首次需运行 `pnpm aggregator:dev`，再用 `Authorization: Bearer <RUN_TOKEN>` 请求 `/run?task=rankings`（可选 `hotboard`、`daily-news`、`epic`、`saying`）抓一次，缺失时前端显示空状态。`RUN_TOKEN` 写入 `workers/aggregator/.dev.vars`（已 gitignore）；线上通过 `wrangler secret put RUN_TOKEN --config workers/aggregator/wrangler.toml` 设置，未设置时 `/run` 返回 503。抓取源为 GitHub Trending 与 UAPI（热榜、Epic 限免需积分、一言免费），可用 `UAPI_KEY` secret 提升额度；积分预算见 [本地实施计划](docs/LOCAL-ROADMAP.md)。
 
 ### 发布到生产 R2
 
@@ -139,6 +142,15 @@ Wrangler 与 Miniflare 使用配套版本，前后端 TypeScript 配置独立，
 - [品牌与视觉规范](docs/BRAND.md)
 - [本地验收记录](docs/VERIFICATION.md)
 
-聚合 Worker（`workers/aggregator`）用 **2 个 Cron 触发器**（免费计划上限 5）：`0 */6 * * *` 抓 GitHub Trending 与热榜 5 平台，`0 1 * * *`（北京 09:00）抓每日新闻并顺带 Epic 限免与一言池。更多数据源优先并入现有触发器，按 `Source` 接口扩展，需先确认接口与字段。
+聚合 Worker（`workers/aggregator`）用 **4 个 Cron 触发器**（免费计划上限 5，保留 1 个余量），时间为 UTC，映射在 `src/index.ts` 的 `schedule`，与 `wrangler.toml` 的 `crons` 由测试保持一致：
+
+| Cron | 北京时间 | 任务 |
+| --- | --- | --- |
+| `0 */6 * * *` | 每 6 小时 | GitHub 趋势、热榜 5 平台 |
+| `0 1 * * *` | 09:00 | 每日新闻图、Epic 限免 |
+| `30 1 * * *` | 09:30 | 一言池 |
+| `0 5 * * *` | 13:00 | 每日新闻补抓（当日已存在则跳过） |
+
+未知的 Cron 表达式只记录日志，不执行任务。更多数据源优先并入现有触发器，按 `Source` 接口扩展，需先确认接口与字段。
 
 后续：GSAP ScrollTrigger / Lenis 滚动增强、更多实验、更多榜单数据源（Artificial Analysis / LMSYS / OpenRouter / RSS）及扩展皮肤。正式部署见上文「部署」一节。

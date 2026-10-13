@@ -6,6 +6,8 @@
 
 ### 变更
 
+- 聚合 Worker 改为 4 条 Cron 触发器（`0 */6 * * *`、`0 1 * * *`、`30 1 * * *`、`0 5 * * *`），按表达式分派任务，未知表达式只记录日志；Epic 返回空列表时保留 R2 上一次结果。
+- 聚合 Worker `/run` 需 `Authorization: Bearer <RUN_TOKEN>`，未配置令牌返回 503、错误返回 401；必须指定 `?task=`（`rankings`、`hotboard`、`daily-news`、`epic`、`saying`），每次只执行一个任务。
 - 站点由 Cloudflare Pages 迁移为 Worker：`functions/` 的 12 个 Pages Function 合并为 `src/worker/index.ts` 路由加 `src/worker/handlers/`（api、blog、media、feeds），静态页面由 `[assets]` 绑定提供，`wrangler.toml` 的 `main`、`[assets]`、`[build]` 替代 `pages_build_output_dir`。
 - `pnpm dev` 与 `pnpm preview` 改用 `wrangler dev`，`pnpm dev` 通过 `--var LOCAL_DEV:true` 关闭本地缓存；`pnpm dev` 不再重复执行初始构建。
 - `/` 下未匹配的 `/api/*` 路径、`/article-shell` 直接访问统一返回 404 页面；`/api/:collection` 改用 `Map` 查找，避免匹配到原型链属性（如 `constructor`）。
@@ -14,6 +16,8 @@
 
 ### 新增
 
+- 管理页「概览 → Cloudflare 部署」：验证并保存 Cloudflare API 令牌（仅内存）、部署聚合 Worker、设置 `RUN_TOKEN`；输出经脱敏后显示。
+- 管理页「聚合任务」页签：验证并保存 `RUN_TOKEN`（仅内存），手动执行聚合 Worker 的 5 个任务并显示结果；`AGGREGATOR_URL` 可覆盖默认 Worker 地址。
 - 首页 Hero 背景「流光」：Reynolds Boids 以拖拽的光线呈现（无鸟类形态），加入缓弯主流向、连续柔线拖尾与更轻的指针扰动；雷达面板坐标显示群体质心。
 - `/fun` 标题区背景康威生命游戏：环形边界 B3/S23，以稀疏、慢速、低对比度的标准方格衬托「玩点不一样的 / Play」标题；实验卡保持独立清晰。
 - 首页 Hero 与 Playground 标题区随滚动由下而上柔和虚化退场；导航和实验卡保持清晰，减少动态效果时关闭过渡。

@@ -52,6 +52,8 @@ export async function runHotboard(env: Env): Promise<TaskResult> {
 
 export async function runEpic(env: Env): Promise<TaskResult> {
   const items = await fetchEpic(env);
+  // An empty list is treated as a bad response: keep the last good file instead of overwriting it.
+  if (!items.length) return { task: 'epic', ok: 0, failed: 0, skipped: true };
   const file = { updatedAt: new Date().toISOString(), items };
   await env.CONTENT_BUCKET.put('misc/epic-free.json', JSON.stringify(file, null, 2), { httpMetadata: jsonMeta });
   return { task: 'epic', ok: items.length, failed: 0 };

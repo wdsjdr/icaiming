@@ -151,6 +151,21 @@ export function normalizeCredential(value: unknown, label: string): string {
   return text;
 }
 
+export function normalizeRunToken(value: unknown): string {
+  const text = normalizeCredential(value, '聚合 Worker 的 RUN_TOKEN');
+  if (text.length < 16) throw new AdminError(400, 'RUN_TOKEN 至少 16 个字符');
+  return text;
+}
+
+// Strips terminal colour codes and replaces every given secret with a placeholder before output reaches the page.
+export function sanitizeCommandOutput(text: string, secrets: string[]): string {
+  let output = text.replace(/\u001b\[[0-9;?]*[A-Za-z]/g, '');
+  for (const secret of secrets) {
+    if (secret) output = output.split(secret).join('[已隐藏]');
+  }
+  return output.trim();
+}
+
 export async function updateEnvFile(envPath: string, updates: Record<string, string>) {
   const text = await readFile(envPath, 'utf8').catch(() => '');
   const lines = text ? text.split(/\r?\n/) : [];

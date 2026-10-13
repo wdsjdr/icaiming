@@ -7,6 +7,7 @@ import { spawn } from 'node:child_process';
 import { prepareContent, publishContent } from '../content';
 import { renderMarkdown } from '../../src/server/markdown';
 import * as store from './lib';
+import * as aggregator from './aggregator';
 
 const icaimingRoot = fileURLToPath(new URL('../../', import.meta.url));
 const publicDir = fileURLToPath(new URL('./public/', import.meta.url));
@@ -18,6 +19,18 @@ const jsonLimit = 2 * 1024 * 1024;
 const siteOrigin = process.env.SITE_ORIGIN ?? 'http://127.0.0.1:4321';
 const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
 const allowedOrigins = new Set([`http://127.0.0.1:${port}`, `http://localhost:${port}`]);
+const wranglerBin = join(icaimingRoot, 'node_modules', 'wrangler', 'bin', 'wrangler.js');
+const aggregatorConfig = join(icaimingRoot, 'workers', 'aggregator', 'wrangler.toml');
+// Cloudflare API token used only for Worker deployment. Held in memory for this server run:
+// never written to disk, never returned to the page, cleared when the admin server stops.
+let cloudflareApiToken = '';
+let cloudflareBusy = false;
+const wranglerTimeoutMs = 5 * 60 * 1000;
+// Aggregator RUN_TOKEN: kept in memory only, set after a successful `secret put` or verified by the aggregator tab.
+let aggregatorRunToken = '';
+let aggregatorBusy = false;
+// Throws at startup if AGGREGATOR_URL is malformed, so the misconfiguration is visible immediately.
+const aggregatorBaseUrl = aggregator.aggregatorBase(process.env);
 const staticFiles: Record<string, string> = {
   '/app.js': 'text/javascript; charset=utf-8',
   '/app.css': 'text/css; charset=utf-8',
@@ -77,7 +90,7 @@ async function probeSite() {
 let pipelineBusy = false;
 
 async function runCaptured<T>(job: () => Promise<T>) {
-  if (pipelineBusy) throw new HttpError(409, '已有校验/发布任务在运行，请稍候');
+  if (pipelineBusy || cloudflareBusy) throw new HttpError(409, '已有校验/发布/部署任务在运行，请稍候');
   pipelineBusy = true;
   const logs: string[] = [];
   const originalLog = console.log;
@@ -108,6 +121,52 @@ async function credentialStatus() {
   return { s3: has('R2_ACCESS_KEY_ID') && has('R2_SECRET_ACCESS_KEY'), wrangler: has('CLOUDFLARE_API_TOKEN') };
 }
 
+function requireCloudflareToken(): string {
+  if (!cloudflareApiToken) throw new HttpError(400, '请先在本页配置 Cloudflare API 令牌');
+  return cloudflareApiToken;
+}
+
+async function runCloudflareJob<T>(job: () => Promise<T>): Promise<T> {
+  if (cloudflareBusy || pipelineBusy) throw new HttpError(409, '已有校验/发布/部署任务在运行，请稍候');
+  cloudflareBusy = true;
+  try {
+    return await job();
+  } finally {
+    cloudflareBusy = false;
+  }
+}
+
+// Runs the project-local wrangler with an explicit token. The inherited environment is stripped of
+// CLOUDFLARE_API_TOKEN so only the token entered on this page is used (no OAuth browser prompt).
+// `stdin` is piped to the command (used for `secret put`); both secrets are redacted from the output.
+function runWrangler(args: string[], options: { token: string; stdin?: string }): Promise<{ ok: boolean; output: string }> {
+  const secrets = [options.token, options.stdin ?? ''].filter(Boolean);
+  const env: NodeJS.ProcessEnv = { ...process.env, CLOUDFLARE_API_TOKEN: options.token };
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [wranglerBin, ...args], {
+      cwd: icaimingRoot, env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
+    });
+    let raw = '';
+    const collect = (chunk: Buffer) => { raw += chunk.toString('utf8'); };
+    child.stdout.on('data', collect);
+    child.stderr.on('data', collect);
+    child.stdin.on('error', () => { /* 子进程提前退出时忽略 EPIPE */ });
+    const timer = setTimeout(() => {
+      raw += '\n[admin] 超过 5 分钟，已终止';
+      child.kill();
+    }, wranglerTimeoutMs);
+    child.on('error', (error) => {
+      clearTimeout(timer);
+      resolve({ ok: false, output: store.sanitizeCommandOutput(`无法启动 wrangler：${error.message}`, secrets) });
+    });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      resolve({ ok: code === 0, output: store.sanitizeCommandOutput(raw, secrets) });
+    });
+    child.stdin.end(options.stdin ?? '');
+  });
+}
+
 async function buildState() {
   const [siteRunning, credentials, posts, media, trash] = await Promise.all([
     probeSite(), credentialStatus(), store.listPosts(contentRoot), store.listMedia(contentRoot), store.listTrash(contentRoot),
@@ -123,6 +182,8 @@ async function buildState() {
   }
   return {
     contentRoot, siteOrigin, siteRunning, credentials,
+    cloudflare: { apiToken: Boolean(cloudflareApiToken) },
+    aggregator: { url: aggregatorBaseUrl, runToken: Boolean(aggregatorRunToken) },
     collections: collectionStates,
     counts: {
       posts: posts.length,
@@ -199,6 +260,96 @@ async function handle(req: IncomingMessage, res: ServerResponse, url: URL): Prom
     process.env.R2_SECRET_ACCESS_KEY = secretAccessKey;
     console.log(`[admin] R2 发布凭据已更新（Access Key ID 尾号 ${accessKeyId.slice(-4)}）`);
     sendJson(res, 200, { ok: true });
+    return true;
+  }
+
+  if (path === '/api/cloudflare/token' && method === 'POST') {
+    const body = await readJsonBody(req);
+    const value = store.normalizeCredential(body.apiToken, 'Cloudflare API 令牌');
+    const verified = await runCloudflareJob(() => runWrangler(['whoami'], { token: value }));
+    if (!verified.ok) {
+      sendJson(res, 200, { ok: false, error: '令牌验证失败，请确认权限与账户范围', logs: verified.output });
+      return true;
+    }
+    cloudflareApiToken = value;
+    console.log('[admin] Cloudflare API 令牌已验证并保存在内存中（未写入磁盘）');
+    sendJson(res, 200, { ok: true, logs: verified.output });
+    return true;
+  }
+  if (path === '/api/cloudflare/token' && method === 'DELETE') {
+    cloudflareApiToken = '';
+    console.log('[admin] Cloudflare API 令牌已从内存清除');
+    sendJson(res, 200, { ok: true });
+    return true;
+  }
+  if (path === '/api/cloudflare/deploy-aggregator' && method === 'POST') {
+    const token = requireCloudflareToken();
+    console.log('[admin] 开始部署聚合 Worker（ic-aiming-aggregator）');
+    const result = await runCloudflareJob(() => runWrangler(['deploy', '--config', aggregatorConfig], { token }));
+    console.log(`[admin] 聚合 Worker 部署${result.ok ? '完成' : '失败'}`);
+    sendJson(res, 200, { ok: result.ok, logs: result.output, error: result.ok ? undefined : '部署失败，详见日志' });
+    return true;
+  }
+  if (path === '/api/cloudflare/run-token' && method === 'POST') {
+    const token = requireCloudflareToken();
+    const body = await readJsonBody(req);
+    const value = store.normalizeRunToken(body.value);
+    const result = await runCloudflareJob(() => runWrangler(
+      ['secret', 'put', 'RUN_TOKEN', '--config', aggregatorConfig],
+      { token, stdin: value },
+    ));
+    if (result.ok) aggregatorRunToken = value;
+    console.log(`[admin] 聚合 Worker RUN_TOKEN 设置${result.ok ? '完成（已保存到内存供聚合任务页使用）' : '失败'}（值未记录）`);
+    sendJson(res, 200, { ok: result.ok, logs: result.output, error: result.ok ? undefined : '设置失败，详见日志' });
+    return true;
+  }
+
+  if (path === '/api/aggregator/token' && method === 'POST') {
+    const body = await readJsonBody(req);
+    const value = store.normalizeRunToken(body.value);
+    // Token check without a task: the Worker answers 400 for a valid token and runs nothing.
+    const check = await aggregator.callAggregator({ base: aggregatorBaseUrl, token: value, timeoutMs: aggregator.VERIFY_TIMEOUT_MS })
+      .then((response) => aggregator.describeVerifyStatus(response.status))
+      .catch((error) => aggregator.describeNetworkError(error));
+    if (check !== null) {
+      sendJson(res, 200, { ok: false, error: check });
+      return true;
+    }
+    aggregatorRunToken = value;
+    console.log('[admin] 聚合 Worker RUN_TOKEN 已验证并保存到内存（值未记录）');
+    sendJson(res, 200, { ok: true });
+    return true;
+  }
+
+  if (path === '/api/aggregator/run' && method === 'POST') {
+    if (!aggregatorRunToken) throw new HttpError(400, '请先设置或验证 RUN_TOKEN');
+    const body = await readJsonBody(req);
+    // Whitelist only: the task name is forwarded to the Worker as a query value.
+    if (!aggregator.isAggregatorTask(body.task)) throw new HttpError(400, '不支持的任务名称');
+    if (aggregatorBusy) throw new HttpError(409, '已有聚合任务在运行，请稍候');
+    aggregatorBusy = true;
+    const task = body.task;
+    console.log(`[admin] 手动执行聚合任务 ${task}`);
+    try {
+      const response = await aggregator.callAggregator({
+        base: aggregatorBaseUrl, token: aggregatorRunToken, task, timeoutMs: aggregator.RUN_TIMEOUT_MS,
+      });
+      const message = aggregator.describeRunStatus(response.status);
+      if (message !== null) {
+        console.log(`[admin] 聚合任务 ${task} 未执行：${message}`);
+        sendJson(res, 200, { ok: false, task, error: message });
+        return true;
+      }
+      const results = await response.json();
+      console.log(`[admin] 聚合任务 ${task} 完成：${JSON.stringify(results)}`);
+      sendJson(res, 200, { ok: true, task, results });
+    } catch (error) {
+      const message = aggregator.describeNetworkError(error);
+      console.log(`[admin] 聚合任务 ${task} 失败：${message}`);
+      sendJson(res, 200, { ok: false, task, error: message });
+    } finally {
+      aggregatorBusy = false;
+    }
     return true;
   }
 

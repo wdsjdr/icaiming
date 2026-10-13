@@ -81,7 +81,7 @@ icaiming-content/ → 校验 / 生成文章索引 → 本地 R2
 
 已完成首页原子到 Logo 开屏动画（可跳过、按需加载、会话内一次、低端设备 CSS 简版）。发现页现有「精选收藏 / 资源下载 / 数据榜单 / 热榜 · 前沿」四块（粘性分栏 Tab，默认热榜，首次激活才拉取）；Epic「限时免费」移至 `/daily` 每日新闻下方；好玩页新增 `/fun/answerbook` 答案之书，首页 status 行与页脚显示随机一言。
 
-聚合 Worker 合并为 `workers/aggregator`：GitHub Trending 榜单（归一化写入 `rankings/combined.json`）、UAPI 热榜 5 平台（`misc/hotboard/*`）、Epic 限时免费（`misc/epic-free.json`）、一言池（`misc/saying.json`）、每日新闻图（`misc/daily-news/<date>.jpg`）。免费计划最多 5 个 Cron 触发器，故用 **2 个**：`0 */6 * * *`（榜单 + 热榜）与 `0 1 * * *`=北京 09:00（每日新闻 + 限免 + 一言）。失败保留上一次结果，UAPI 调用按 4 QPS 限速间隔。每日新闻图按北京日期命名、幂等跳过、超 `NEWS_RETENTION_DAYS`（默认 365 天）自清理；答案之书为免费实时代理。离线测试见 `tests/rankings.test.ts`、`tests/uapi.test.ts`、`tests/daily-news.test.ts`。
+聚合 Worker 合并为 `workers/aggregator`：GitHub Trending 榜单（归一化写入 `rankings/combined.json`）、UAPI 热榜 5 平台（`misc/hotboard/*`）、Epic 限时免费（`misc/epic-free.json`）、一言池（`misc/saying.json`）、每日新闻图（`misc/daily-news/<date>.jpg`）。免费计划最多 5 个 Cron 触发器，故用 **4 个**：`0 */6 * * *`（榜单 + 热榜）、`0 1 * * *`=北京 09:00（每日新闻 + 限免）、`30 1 * * *`（一言池）、`0 5 * * *`（每日新闻补抓）。`/run?task=` 需 `RUN_TOKEN` Bearer 鉴权。失败保留上一次结果，UAPI 调用按 4 QPS 限速间隔。每日新闻图按北京日期命名、幂等跳过、超 `NEWS_RETENTION_DAYS`（默认 365 天）自清理；答案之书为免费实时代理。离线测试见 `tests/rankings.test.ts`、`tests/uapi.test.ts`、`tests/daily-news.test.ts`。
 
 积分预算（访客每月 1500）：热榜 1 积分/次 × 5 平台 × 每 6h ≈ 600/月；Epic 限免 ≈ 30/月；每日新闻 ≈ 30/月（1/天）；一言与答案之书免费。共约 660/月，留足余量；如需 `UAPI_KEY` 可提升额度，经 `wrangler secret put UAPI_KEY` 注入。
 
