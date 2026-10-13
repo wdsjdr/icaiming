@@ -32,6 +32,8 @@
 - 管理页新增「发布凭据」面板：可直接粘贴 R2 令牌的 Access Key ID 与 Secret Access Key，合并写入 `icaiming/.dev.vars`（保留其他行、不回显已保存值），当前会话立即生效，适配 R2 令牌到期轮换；`POST /api/credentials` 仅限本机会话令牌访问。
 - 发布改为增量：`content:publish` 逐对象 HEAD 比对 ETag/MD5，未变更对象不再重传并跳过 manifest 重写，完成后输出「新增/更新/跳过/删除」汇总，无变更时不写入任何对象；管理页「发布到生产 R2」同步显示该汇总（wrangler 回退路径标注无变更检测）。
 - 管理页条目编辑器交互修复：新增条目自动滚动定位并聚焦（高亮反馈）、必填与链接/日期格式的就地中文校验与错误定位高亮（服务端 zod 错误映射回对应条目）、未保存修改在切换页签/关闭页面前确认与保存按钮脏标记、移动按钮边界禁用、工具栏吸顶、下载条目内直接上传文件并自动填入路径与大小。
+- 法律文件页面：`/legal` 索引（文件卡片、要点速览）与 `/legal/terms`、`/legal/privacy`、`/legal/disclaimer`、`/legal/notices` 四个文档页，中英文逐条对照、以中文为准，条款可深链（`#article-n` / `#clause-n-m`）并可打印。文本源自工作区 `LEGAL.md` 草案，按实际功能修订：订阅与访问统计改为「暂未提供 / 上线前更新」，补充答案之书转发 UAPI、浏览器本地存储键、Epic 封面直连、GitHub/UAPI 数据源，爬虫条款与 `robots.txt` 对齐。数据位于 `src/lib/legal.ts`，新增 `tests/legal.test.ts`。
+- 页脚新增「法律与隐私」入口；`/sitemap.xml` 加入 5 个法律路由；`robots.txt` 的说明链接改指 `/legal/notices#article-2`；`/fun/answerbook` 表单下增加数据处理即时告知并链接隐私政策。
 
 ### 变更
 

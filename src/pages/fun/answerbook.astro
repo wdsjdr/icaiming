@@ -10,6 +10,7 @@ import PageLayout from '../../layouts/PageLayout.astro';
         <button class="button" type="submit">翻开一页 ↗</button>
       </div>
       <p class="answerbook-status mono" data-answerbook-status aria-live="polite"></p>
+      <p class="answerbook-privacy">问题会经本站服务器转发至第三方接口 UAPI 获取答案，本站不保存。请勿输入个人信息。<a class="inline-link" href="/legal/privacy#article-3">隐私政策</a></p>
     </form>
     <div class="answerbook-page">
       <div class="answerbook-head"><span class="answerbook-mark mono">IC / ANSWER</span></div>
@@ -26,6 +27,8 @@ import PageLayout from '../../layouts/PageLayout.astro';
   .answerbook-row .button { white-space: nowrap; font-weight: 500; }
   .answerbook-status { margin: 14px 0 0; font-size: 11px; color: var(--muted); }
   .answerbook-status:empty { display: none; }
+  .answerbook-privacy { margin: 14px 0 0; font-size: 12px; line-height: 1.8; color: var(--muted); }
+  .answerbook-privacy .inline-link { text-underline-offset: 3px; margin-left: 4px; }
   .answerbook-page { border: 1px solid var(--line); border-radius: var(--radius); background: var(--soft); min-height: 260px; display: flex; flex-direction: column; }
   .answerbook-head { display: flex; align-items: center; padding: 16px 32px; border-bottom: 1px solid var(--line); }
   .answerbook-mark { font-size: 10px; letter-spacing: .12em; color: var(--muted); }

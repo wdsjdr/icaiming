@@ -1,0 +1,38 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import '../../styles/legal.css';
+import { LEGAL, legalDocuments, legalHighlights } from '../../lib/legal';
+const pad = (value: number) => String(value).padStart(2, '0');
+---
+<PageLayout title="法律与隐私" eyebrow="LEGAL / INDEX" english="Legal" description="本站的用户协议、隐私政策、免责声明与其他声明。中英文逐条对照，以中文版本为准。" section="legal">
+  <p class="legal-summary-en" lang="en">The Site’s Terms of Service, Privacy Policy, Disclaimer and Other Statements, each shown clause by clause in Chinese and English. The Chinese version is authoritative.</p>
+  <div class="legal-cards">
+    {legalDocuments.map((doc) => (
+      <a class="legal-card" href={`/legal/${doc.slug}`}>
+        <span class="eyebrow">{doc.code} / {doc.title.en.toUpperCase()}</span>
+        <h2>{doc.title.zh}</h2>
+        <p class="en-title" lang="en">{doc.title.en}</p>
+        <p>{doc.summary.zh}</p>
+        <p class="en" lang="en">{doc.summary.en}</p>
+        <span class="legal-card-foot"><span>{doc.articles.length} 条 / ARTICLES</span><span aria-hidden="true">↗</span></span>
+      </a>
+    ))}
+  </div>
+
+  <section class="legal-glance" aria-labelledby="legal-glance-title">
+    <div class="section-label"><h2 id="legal-glance-title">要点速览<small lang="en">AT A GLANCE</small></h2></div>
+    <ul class="glance-list">
+      {legalHighlights.map((item, index) => (
+        <li><a href={item.href}><span class="mono">{pad(index + 1)}</span><span class="glance-zh">{item.zh}</span><span class="glance-en" lang="en">{item.en}</span></a></li>
+      ))}
+    </ul>
+    <p class="legal-footnote"><span>以上要点仅为便于理解的摘要，不具有法律效力，具体以各文件正文为准。</span><span lang="en">This summary is for convenience only and has no legal effect; the full documents govern.</span></p>
+  </section>
+
+  <dl class="legal-meta legal-index-meta">
+    <div><dt>生效日期 · EFFECTIVE</dt><dd><time datetime={LEGAL.effective}>{LEGAL.effective}</time></dd></div>
+    <div><dt>最后更新 · LAST UPDATED</dt><dd><time datetime={LEGAL.updated}>{LEGAL.updated}</time></dd></div>
+    <div><dt>运营者 · OPERATOR</dt><dd>{LEGAL.operator.zh}<span class="en" lang="en">{LEGAL.operator.en.replace(/^the/, 'The')}</span></dd></div>
+    <div><dt>联系 · CONTACT</dt><dd><a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a></dd></div>
+  </dl>
+</PageLayout>

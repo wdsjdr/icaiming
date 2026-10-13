@@ -1,0 +1,74 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import '../../styles/legal.css';
+import { LEGAL, articleHeading, legalDocuments, renderInline, type LegalDocument } from '../../lib/legal';
+
+export function getStaticPaths() {
+  return legalDocuments.map((doc) => ({ params: { doc: doc.slug }, props: { doc } }));
+}
+interface Props { doc: LegalDocument }
+const { doc } = Astro.props;
+const others = legalDocuments.filter((item) => item.slug !== doc.slug);
+const pad = (value: number) => String(value).padStart(2, '0');
+---
+<PageLayout title={doc.title.zh} eyebrow={`LEGAL / ${doc.code}`} english={doc.title.en} description={doc.summary.zh} section="legal">
+  <div class="legal-layout">
+    <article class="legal-doc">
+      <p class="legal-summary-en" lang="en">{doc.summary.en}</p>
+      <dl class="legal-meta">
+        <div><dt>生效日期 · EFFECTIVE</dt><dd><time datetime={LEGAL.effective}>{LEGAL.effective}</time></dd></div>
+        <div><dt>最后更新 · LAST UPDATED</dt><dd><time datetime={LEGAL.updated}>{LEGAL.updated}</time></dd></div>
+        <div><dt>运营者 · OPERATOR</dt><dd>{LEGAL.operator.zh}<span class="en" lang="en">{LEGAL.operator.en.replace(/^the/, 'The')}</span></dd></div>
+        <div><dt>联系 · CONTACT</dt><dd><a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a></dd></div>
+      </dl>
+      <p class="legal-lang">
+        <span>本文中英文逐条对照。中文为正式文本，英文译本仅供参考，两者不一致时以中文版本为准。</span>
+        <span class="en" lang="en">Each clause is shown in Chinese followed by English. The Chinese text is authoritative; the English translation is for reference only, and the Chinese version prevails in case of any discrepancy.</span>
+      </p>
+      <div class="legal-actions no-print"><button class="button secondary" type="button" data-print>打印本页 / Print ↗</button></div>
+
+      {doc.articles.map((item) => {
+        const heading = articleHeading(item);
+        return (
+          <section class="legal-article" id={item.id} aria-labelledby={`${item.id}-title`}>
+            <h2 id={`${item.id}-title`}><span class="article-zh">{heading.zh}</span><span class="article-en" lang="en">{heading.en}</span></h2>
+            {item.clauses.map((entry) => (
+              <div class="clause" id={entry.id}>
+                <span class="clause-no" aria-hidden="true">{entry.no}</span>
+                <div class="clause-body">
+                  <p set:html={renderInline(entry.zh)} />
+                  <p class="en" lang="en" set:html={renderInline(entry.en)} />
+                  {entry.items.length > 0 && (
+                    <ul class="clause-items">
+                      {entry.items.map((sub) => (
+                        <li><span class="item-label" aria-hidden="true">{sub.label}</span><div><p set:html={renderInline(sub.zh)} /><p class="en" lang="en" set:html={renderInline(sub.en)} /></div></li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            ))}
+          </section>
+        );
+      })}
+
+      <nav class="legal-related no-print" aria-label="其他法律文件">
+        <h2>其他法律文件 · Other documents</h2>
+        <div class="legal-related-grid">
+          {others.map((item) => <a href={`/legal/${item.slug}`}><strong>{item.code} · {item.title.zh}</strong><span lang="en">{item.title.en}</span></a>)}
+        </div>
+      </nav>
+    </article>
+
+    <aside class="legal-aside no-print">
+      <details class="legal-toc" data-legal-toc open>
+        <summary>本文目录 <small lang="en">CONTENTS</small></summary>
+        <nav aria-label="本文目录">
+          {doc.articles.map((item) => <a href={`#${item.id}`}><span class="mono">{pad(item.no)}</span><span>{item.title.zh}</span></a>)}
+        </nav>
+      </details>
+      <script is:inline>(() => { const toc = document.querySelector('[data-legal-toc]'); if (toc && matchMedia('(max-width: 900px)').matches) toc.removeAttribute('open'); })();</script>
+      <a class="small-link" href="/legal">← 全部法律文件 / All documents</a>
+    </aside>
+  </div>
+</PageLayout>

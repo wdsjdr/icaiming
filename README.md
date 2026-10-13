@@ -70,6 +70,7 @@ pnpm dev
 - `/daily` 每日新闻日历：聚合 Worker 每日 09:00（北京）抓一张新闻图存入 R2，月历可回看近 12 个月，超过 `NEWS_RETENTION_DAYS`（默认 365 天）自动清理；日历下方展示 Epic「限时免费」游戏。
 - `/fun/focus` 聚焦练习（限时 60 秒点小球，难度递增，统计反应时间与命中率，最佳成绩存于本地 `focus-best`）与 `/fun/answerbook` 答案之书（实时转发 UAPI，免费接口，失败回退提示）；首页 status 行与页脚显示随机一言。游戏与实验条目硬编码在 `src/pages/fun/` 中，不属于内容仓库。
 - 首页开屏动画：原子 → 平面 → 翻转显示标识与标语 → 镜头穿越，Three.js + GSAP 按需加载（gzip 约 174 KB），每会话一次，可跳过；`?intro=1` 重播、`?intro=0` 关闭，详见 [品牌规范](docs/BRAND.md#开屏动画)。
+- `/legal` 法律与隐私：用户协议、隐私政策、免责声明、其他声明四个静态页，中英文逐条对照（中文为准），页脚入口、sitemap 收录。文本在 `src/lib/legal.ts`（随代码维护，不放 R2）；新增或改变涉及数据处理的功能（Cookie、存储键、第三方接口、订阅、统计）时，同步修改该文件与 `LEGAL.updated`。
 - 两处背景涌现效果，均为纯 Canvas、按需加载、失败不影响页面：首页 Hero 的「流光」使用 Reynolds Boids、缓弯主流向与渐隐拖尾（不绘制粒子头），指针轻微扰动；`/fun` 页头区域铺满的康威生命游戏以低密度方格缓慢变化，作为「玩点不一样的 / Play」标题底纹。两者配色取自 CSS 变量，随皮肤与明暗模式切换；关闭动画或系统「减少动态效果」时保留静态画面，离开视口或标签页隐藏时暂停。首页 Hero 和 Playground 页头随滚动由下而上柔和虚化退场（模糊上限 12px）。
 
 简历经历、教育和 PDF 尚待个人资料补充；页面展示对应空状态。两篇初始文章明确作为示例，资源列表为建站相关的初始收藏。
@@ -107,7 +108,7 @@ pnpm dev
 src/components/        公共布局、品牌及 UI
 src/layouts/           全站布局、分区页布局
 src/pages/             静态页面及 article-shell 共用模板
-src/lib/               内容契约、浏览器渲染、主题逻辑
+src/lib/               内容契约、浏览器渲染、主题逻辑、法律文件文本（legal.ts）
 src/server/            R2 服务、Markdown 渲染
 src/styles/            主题、分区、长文和动效样式
 src/stores/            Nanostores 偏好状态
