@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { stat } from 'node:fs/promises';
 import {
   AGGREGATOR_TASKS, AggregatorConfigError, DEFAULT_AGGREGATOR_URL, aggregatorBase, buildRunUrl, callAggregator,
-  describeNetworkError, describeRunStatus, describeVerifyStatus, isAggregatorTask,
+  describeNetworkError, describeRunStatus, describeVerifyStatus, isAggregatorTask, maskProxy, normalizeProxyUrl,
+  parseDotenv, resolveProxy,
 } from '../scripts/admin/aggregator';
 import { contentRoot, prepareContent } from '../scripts/content';
 
@@ -44,8 +45,37 @@ test('Worker status codes map to actionable Chinese messages', () => {
 });
 
 test('timeouts and connection failures are reported without throwing', () => {
-  assert.match(describeNetworkError(Object.assign(new Error('x'), { name: 'TimeoutError' })), /超过 2 分钟/);
-  assert.match(describeNetworkError(new TypeError('fetch failed')), /无法连接聚合 Worker/);
+  assert.match(describeNetworkError(Object.assign(new Error('x'), { name: 'TimeoutError' }), null), /超过 2 分钟/);
+  assert.match(describeNetworkError(new TypeError('fetch failed'), null), /无法连接聚合 Worker/);
+  // Connect timeouts without a proxy: point to .env.
+  const timeout = new TypeError('fetch failed', { cause: Object.assign(new Error('connect'), { code: 'UND_ERR_CONNECT_TIMEOUT' }) });
+  const direct = describeNetworkError(timeout, null);
+  assert.match(direct, /UND_ERR_CONNECT_TIMEOUT/);
+  assert.match(direct, /icaiming\/\.env/);
+  // With a proxy configured, the message names it instead.
+  const proxied = describeNetworkError(timeout, 'http://127.0.0.1:7897');
+  assert.match(proxied, /127\.0\.0\.1:7897/);
+  assert.doesNotMatch(proxied, /\.env/);
+});
+
+test('dotenv values are read with optional quotes and export prefix', () => {
+  const values = parseDotenv('# comment\nR2_BUCKET=abc\nexport HTTPS_PROXY="http://127.0.0.1:7897"\n  HTTP_PROXY = \'http://x:1\' \n');
+  assert.equal(values.R2_BUCKET, 'abc');
+  assert.equal(values.HTTPS_PROXY, 'http://127.0.0.1:7897');
+  assert.equal(values.HTTP_PROXY, 'http://x:1');
+});
+
+test('proxy is normalised, masked for display and resolved by precedence', () => {
+  assert.equal(normalizeProxyUrl('127.0.0.1:7897'), 'http://127.0.0.1:7897');
+  assert.equal(normalizeProxyUrl(' https://proxy.example:8443/ '), 'https://proxy.example:8443');
+  assert.throws(() => normalizeProxyUrl('socks5://127.0.0.1:1080'), AggregatorConfigError);
+  assert.throws(() => normalizeProxyUrl('http://'), AggregatorConfigError);
+  assert.equal(maskProxy('http://user:secret@127.0.0.1:7897'), 'http://127.0.0.1:7897');
+  assert.deepEqual(resolveProxy({ HTTPS_PROXY: 'http://env:1' } as NodeJS.ProcessEnv, { HTTPS_PROXY: 'http://file:2' }),
+    { url: 'http://env:1', source: '环境变量' });
+  assert.deepEqual(resolveProxy({} as NodeJS.ProcessEnv, { HTTPS_PROXY: '127.0.0.1:7897' }),
+    { url: 'http://127.0.0.1:7897', source: 'icaiming/.env' });
+  assert.equal(resolveProxy({} as NodeJS.ProcessEnv, {}), null);
 });
 
 test('callAggregator sends the token only in the Authorization header', async () => {

@@ -55,7 +55,7 @@ pnpm dev
 - 条目编辑交互：新增条目自动滚动定位并聚焦、必填与链接/日期格式就地中文校验、错误条目定位高亮、未保存修改在切换页签或关闭页面前确认、移动按钮边界禁用、工具栏吸顶；下载条目可在表单内直接上传文件并自动填入路径与大小（新建/编辑文章同样有未保存守卫）。
 - 发布凭据（R2 令牌）可直接在「概览 → 发布凭据」粘贴更新：保存写入 `icaiming/.dev.vars`（合并保留其他行，已 gitignore），当前会话立即生效，适合 R2 令牌到期轮换；已保存的值不会回显。
 - Cloudflare 部署（「概览 → Cloudflare 部署」）：粘贴 API 令牌后先调用 `wrangler whoami` 验证，仅保存在管理页进程内存中（不写盘，关闭管理页即清除，也可手动清除）。可一键部署 `ic-aiming-aggregator`，或设置其 `RUN_TOKEN`（值经 stdin 交给 wrangler，设置成功后同样只保存在内存中）。部署会启用定时任务并消耗 UAPI 额度，均需二次确认。
-- 聚合任务（「聚合任务」页签）：手动执行聚合 Worker 的单个任务（`rankings`、`hotboard`、`daily-news`、`epic`、`saying`），结果以 JSON 显示。需要已就绪的 `RUN_TOKEN`：刚在概览设置过会自动就绪；管理页重启后粘贴已设置的值验证即可（验证只发送一次不带任务的请求，不执行抓取）。消耗积分的任务执行前需确认。Worker 地址默认为 `https://ic-aiming-aggregator.3043927908.workers.dev`，可用环境变量 `AGGREGATOR_URL` 覆盖（只能是域名或源，不能带路径）。
+- 聚合任务（「聚合任务」页签）：手动执行聚合 Worker 的单个任务（`rankings`、`hotboard`、`daily-news`、`epic`、`saying`），结果以 JSON 显示。需要已就绪的 `RUN_TOKEN`：刚在概览设置过会自动就绪；管理页重启后粘贴已设置的值验证即可（验证只发送一次不带任务的请求，不执行抓取）。消耗积分的任务执行前需确认。Worker 地址默认为 `https://ic-aiming-aggregator.3043927908.workers.dev`，可用环境变量 `AGGREGATOR_URL` 覆盖（只能是域名或源，不能带路径）。若本机直连 Cloudflare 不通，在 `icaiming/.env`（已 gitignore）中加入 `HTTPS_PROXY=http://127.0.0.1:7897`（端口按你的代理软件），然后重启 `pnpm admin`。Node 不读取 Windows 系统代理，所以必须写在这里或设置环境变量；「聚合任务」页会显示当前使用的代理（不含凭据）。
 - 发布到生产 R2 不会改动聚合 Worker 写入的 `rankings/` 与 `misc/`：导入器的内容列表不包含这些前缀，上传与清理都会跳过它们（`tests/admin-aggregator.test.ts` 有对应断言）。
 - 安全约束：仅回环地址 + Host/Origin 校验 + 每次启动的会话令牌；`rankings/`、`misc/`、`posts/index.json` 永不可写；上传默认 50MB 上限（`ADMIN_MAX_UPLOAD_MB` 调整）。
 - Windows 快捷启动：双击工作区根目录的 `启动管理页.cmd`——检测 4321 端口，站点未运行时先开新窗口跑 `pnpm dev`，再启动管理页；额外参数会透传给 `pnpm admin`（如 `--no-open`）。

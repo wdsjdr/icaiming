@@ -441,10 +441,19 @@ const AGG_TASKS = [
 
 views.aggregator = async (view) => {
   const info = await api('/api/state');
-  const ready = Boolean(info.aggregator && info.aggregator.runToken);
+  // 管理页进程若在新版本前启动，/api/state 不含 aggregator 字段；提示重启而不是报错。
+  if (!info.aggregator) {
+    view.innerHTML = `
+      <h1>聚合任务</h1>
+      <div class="panel">
+        <p>管理页服务版本过旧，缺少聚合任务接口。请在终端按 Ctrl+C 停止 <code>pnpm admin</code>，重新运行后刷新本页。</p>
+      </div>`;
+    return;
+  }
+  const ready = Boolean(info.aggregator.runToken);
   view.innerHTML = `
     <h1>聚合任务</h1>
-    <p class="muted">手动执行聚合 Worker（<code>${esc(info.aggregator.url)}</code>）的单个抓取任务，结果直接写入 R2。定时任务由 Cron 自动执行，这里用于补抓或验证。</p>
+    <p class="muted">手动执行聚合 Worker（<code>${esc(info.aggregator.url)}</code>）的单个抓取任务，结果直接写入 R2。定时任务由 Cron 自动执行，这里用于补抓或验证。出站代理：${info.aggregator.proxy ? `<code>${esc(info.aggregator.proxy)}</code>` : '未配置（直连）'}。</p>
     <div class="panel">
       <h2 style="margin-top:0">RUN_TOKEN</h2>
       <p class="muted">${ready

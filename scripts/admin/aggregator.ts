@@ -12,6 +12,47 @@ export const VERIFY_TIMEOUT_MS = 15 * 1000;
 
 export class AggregatorConfigError extends Error {}
 
+export interface ProxySetting { url: string; source: string }
+
+// Minimal dotenv reader: KEY=VALUE per line, optional quotes, no interpolation.
+export function parseDotenv(text: string): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const line of text.split(/\r?\n/)) {
+    const match = /^\s*(?:export\s+)?([A-Za-z0-9_]+)\s*=\s*(.*)$/.exec(line);
+    if (match) values[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, '');
+  }
+  return values;
+}
+
+// Accepts "127.0.0.1:7897" as well as full URLs. undici's proxy agent only speaks HTTP(S) proxies.
+export function normalizeProxyUrl(raw: string): string {
+  const text = raw.trim();
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `http://${text}`;
+  let url: URL;
+  try {
+    url = new URL(withScheme);
+  } catch {
+    throw new AggregatorConfigError(`代理地址不合法：${raw}`);
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new AggregatorConfigError('代理只支持 http:// 或 https://');
+  return url.toString().replace(/\/$/, '');
+}
+
+// Credentials never reach the page or the log: only scheme, host and port are shown.
+export function maskProxy(url: string): string {
+  const parsed = new URL(url);
+  return `${parsed.protocol}//${parsed.host}`;
+}
+
+// Precedence: process environment, then icaiming/.env. Returns null for a direct connection.
+export function resolveProxy(processEnv: NodeJS.ProcessEnv, dotenv: Record<string, string>): ProxySetting | null {
+  const fromEnv = processEnv.HTTPS_PROXY || processEnv.https_proxy || processEnv.HTTP_PROXY || processEnv.http_proxy;
+  if (fromEnv) return { url: normalizeProxyUrl(fromEnv), source: '环境变量' };
+  const fromFile = dotenv.HTTPS_PROXY || dotenv.HTTP_PROXY;
+  if (fromFile) return { url: normalizeProxyUrl(fromFile), source: 'icaiming/.env' };
+  return null;
+}
+
 // AGGREGATOR_URL overrides the default Worker origin. Only the origin is kept: the Worker serves /run at its root.
 export function aggregatorBase(env: NodeJS.ProcessEnv = process.env): string {
   const raw = (env.AGGREGATOR_URL || DEFAULT_AGGREGATOR_URL).trim();
@@ -54,12 +95,20 @@ export function describeVerifyStatus(status: number): string | null {
   return `聚合 Worker 返回 ${status}，无法验证`;
 }
 
-export function describeNetworkError(error: unknown): string {
+// `proxy` is the display form of the outbound proxy in use (no credentials), or null for a direct connection.
+export function describeNetworkError(error: unknown, proxy: string | null): string {
   const name = (error as Error | undefined)?.name;
   if (name === 'TimeoutError' || name === 'AbortError') {
     return '聚合 Worker 超过 2 分钟未返回。任务可能仍在 Cloudflare 上执行，可稍后查看 R2 中的更新时间';
   }
-  return `无法连接聚合 Worker：${(error as Error | undefined)?.message ?? String(error)}`;
+  const cause = (error as { cause?: { code?: string } } | undefined)?.cause;
+  const code = cause?.code ?? '';
+  const detail = `${(error as Error | undefined)?.message ?? String(error)}${code ? `（${code}）` : ''}`;
+  const unreachable = ['UND_ERR_CONNECT_TIMEOUT', 'ETIMEDOUT', 'ECONNREFUSED', 'ENOTFOUND', 'ECONNRESET'].includes(code);
+  let hint = '';
+  if (unreachable && proxy) hint = `。当前经代理 ${proxy} 连接，请确认代理软件正在运行`;
+  else if (unreachable) hint = '。本机未配置代理：若直连 Cloudflare 不通，请在 icaiming/.env 中加入 HTTPS_PROXY=http://127.0.0.1:7897（端口按你的代理软件），然后重启 pnpm admin';
+  return `无法连接聚合 Worker：${detail}${hint}`;
 }
 
 // Calls the Worker with the token in the Authorization header only (never in the URL, so it stays out of logs).

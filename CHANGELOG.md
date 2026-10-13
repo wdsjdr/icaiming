@@ -17,7 +17,7 @@
 ### 新增
 
 - 管理页「概览 → Cloudflare 部署」：验证并保存 Cloudflare API 令牌（仅内存）、部署聚合 Worker、设置 `RUN_TOKEN`；输出经脱敏后显示。
-- 管理页「聚合任务」页签：验证并保存 `RUN_TOKEN`（仅内存），手动执行聚合 Worker 的 5 个任务并显示结果；`AGGREGATOR_URL` 可覆盖默认 Worker 地址。
+- 管理页「聚合任务」页签：验证并保存 `RUN_TOKEN`（仅内存），手动执行聚合 Worker 的 5 个任务并显示结果；`AGGREGATOR_URL` 可覆盖默认 Worker 地址。管理页出站请求支持代理：`HTTPS_PROXY` / `HTTP_PROXY` 环境变量或 `icaiming/.env` 中的 `HTTPS_PROXY`（依赖 `undici`），「聚合任务」页显示当前代理（不含凭据）。
 - 首页 Hero 背景「流光」：Reynolds Boids 以拖拽的光线呈现（无鸟类形态），加入缓弯主流向、连续柔线拖尾与更轻的指针扰动；雷达面板坐标显示群体质心。
 - `/fun` 标题区背景康威生命游戏：环形边界 B3/S23，以稀疏、慢速、低对比度的标准方格衬托「玩点不一样的 / Play」标题；实验卡保持独立清晰。
 - 首页 Hero 与 Playground 标题区随滚动由下而上柔和虚化退场；导航和实验卡保持清晰，减少动态效果时关闭过渡。

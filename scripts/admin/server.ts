@@ -1,13 +1,43 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { EnvHttpProxyAgent, setGlobalDispatcher } from 'undici';
 import { prepareContent, publishContent } from '../content';
 import { renderMarkdown } from '../../src/server/markdown';
 import * as store from './lib';
 import * as aggregator from './aggregator';
+
+// Node's fetch ignores the Windows system proxy. Outbound proxy comes from HTTPS_PROXY/HTTP_PROXY in the
+// environment, or from HTTPS_PROXY in icaiming/.env (read at startup; restart the admin after editing).
+// Local addresses always bypass the proxy so the site probe on 127.0.0.1 keeps working.
+const icaimingDir = fileURLToPath(new URL('../../', import.meta.url));
+const dotenvText = (() => {
+  try {
+    return readFileSync(join(icaimingDir, '.env'), 'utf8');
+  } catch {
+    return '';
+  }
+})();
+let outboundProxy: aggregator.ProxySetting | null = null;
+try {
+  outboundProxy = aggregator.resolveProxy(process.env, aggregator.parseDotenv(dotenvText));
+} catch (error) {
+  console.error(`[admin] ${(error as Error).message}`);
+  process.exit(1);
+}
+const proxyDisplay = outboundProxy ? aggregator.maskProxy(outboundProxy.url) : null;
+if (outboundProxy) {
+  process.env.HTTPS_PROXY = outboundProxy.url;
+  if (!process.env.NO_PROXY && !process.env.no_proxy) process.env.NO_PROXY = '127.0.0.1,localhost,::1';
+  setGlobalDispatcher(new EnvHttpProxyAgent());
+  console.log(`[admin] 出站代理：${proxyDisplay}（来源：${outboundProxy.source}）`);
+} else {
+  console.log('[admin] 未配置出站代理，直连 Cloudflare（如不通，请在 icaiming/.env 设置 HTTPS_PROXY）');
+}
 
 const icaimingRoot = fileURLToPath(new URL('../../', import.meta.url));
 const publicDir = fileURLToPath(new URL('./public/', import.meta.url));
@@ -183,7 +213,7 @@ async function buildState() {
   return {
     contentRoot, siteOrigin, siteRunning, credentials,
     cloudflare: { apiToken: Boolean(cloudflareApiToken) },
-    aggregator: { url: aggregatorBaseUrl, runToken: Boolean(aggregatorRunToken) },
+    aggregator: { url: aggregatorBaseUrl, runToken: Boolean(aggregatorRunToken), proxy: proxyDisplay },
     collections: collectionStates,
     counts: {
       posts: posts.length,
@@ -310,7 +340,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, url: URL): Prom
     // Token check without a task: the Worker answers 400 for a valid token and runs nothing.
     const check = await aggregator.callAggregator({ base: aggregatorBaseUrl, token: value, timeoutMs: aggregator.VERIFY_TIMEOUT_MS })
       .then((response) => aggregator.describeVerifyStatus(response.status))
-      .catch((error) => aggregator.describeNetworkError(error));
+      .catch((error) => aggregator.describeNetworkError(error, proxyDisplay));
     if (check !== null) {
       sendJson(res, 200, { ok: false, error: check });
       return true;
@@ -344,7 +374,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, url: URL): Prom
       console.log(`[admin] 聚合任务 ${task} 完成：${JSON.stringify(results)}`);
       sendJson(res, 200, { ok: true, task, results });
     } catch (error) {
-      const message = aggregator.describeNetworkError(error);
+      const message = aggregator.describeNetworkError(error, proxyDisplay);
       console.log(`[admin] 聚合任务 ${task} 失败：${message}`);
       sendJson(res, 200, { ok: false, task, error: message });
     } finally {
