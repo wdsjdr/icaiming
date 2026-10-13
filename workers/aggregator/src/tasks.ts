@@ -59,21 +59,53 @@ export async function runEpic(env: Env): Promise<TaskResult> {
   return { task: 'epic', ok: items.length, failed: 0 };
 }
 
+async function sha256(bytes: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+// The newest archived image strictly before `before`, used to spot an upstream response that has not changed.
+async function latestNewsDateBefore(env: Env, before: string): Promise<string | null> {
+  let latest: string | null = null;
+  let cursor: string | undefined;
+  do {
+    const listed = await env.CONTENT_BUCKET.list({ prefix: 'misc/daily-news/', cursor });
+    for (const object of listed.objects) {
+      const date = parseDailyNewsKey(object.key);
+      if (date && date < before && (!latest || date > latest)) latest = date;
+    }
+    cursor = listed.truncated ? listed.cursor : undefined;
+  } while (cursor);
+  return latest;
+}
+
+async function hasSameImage(env: Env, date: string, bytes: ArrayBuffer): Promise<boolean> {
+  const object = await env.CONTENT_BUCKET.get(dailyNewsKey(date));
+  if (!object || object.size !== bytes.byteLength) return false;
+  return (await sha256(await object.arrayBuffer())) === (await sha256(bytes));
+}
+
 export async function runDailyNews(env: Env): Promise<TaskResult> {
   const today = beijingDate();
   const key = dailyNewsKey(today);
   let available = Boolean(await env.CONTENT_BUCKET.head(key));
+  let stale = false;
   if (!available) {
+    // When its live render fails, UAPI keeps serving the last successful image. A fresh response
+    // identical to the newest archived image means "not updated yet": skip storing it instead of
+    // mislabeling a stale image with today's date. The compensation cron retries later.
+    const previous = await latestNewsDateBefore(env, today);
     for (let attempt = 0; attempt < 3 && !available; attempt++) {
       if (attempt > 0) await sleep(1500 * attempt);
       try {
         const image = await fetchDailyNewsImage(env);
+        if (previous && await hasSameImage(env, previous, image.bytes)) { stale = true; break; }
         await env.CONTENT_BUCKET.put(key, image.bytes, { httpMetadata: { contentType: image.contentType, cacheControl: 'public, max-age=31536000, immutable' } });
         available = true;
       } catch (error) { console.error('[daily-news]', error); }
     }
   }
-  if (!available) return { task: 'daily-news', ok: 0, failed: 1, skipped: true };
+  if (!available) return { task: 'daily-news', ok: 0, failed: stale ? 0 : 1, skipped: true };
   // Prune snapshots older than the retention window.
   const retention = Math.max(1, Number(env.NEWS_RETENTION_DAYS) || 365);
   const cutoff = shiftDate(today, -retention);

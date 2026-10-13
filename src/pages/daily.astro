@@ -23,9 +23,9 @@ import PageLayout from '../layouts/PageLayout.astro';
   .daily { display: grid; grid-template-columns: 1.35fr 1fr; gap: 44px; align-items: start; }
   .daily-viewer-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 30px; }
   .daily-viewer-head .small-link[hidden] { display: none; }
-  .daily-frame { margin-top: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--soft); min-height: 320px; display: grid; place-items: center; padding: 14px; }
-  .daily-frame p { max-width: 320px; text-align: center; font-size: 13px; line-height: 1.9; }
-  .daily-frame :global(.daily-image) { width: 100%; height: auto; display: block; border-radius: calc(var(--radius) - 4px); }
+  .daily-frame { margin-top: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--soft); min-height: 320px; max-height: min(72vh, 640px); overflow: auto; display: flex; flex-direction: column; align-items: center; padding: 14px; scrollbar-width: thin; }
+  .daily-frame p { max-width: 320px; margin: auto; text-align: center; font-size: 13px; line-height: 1.9; }
+  .daily-frame :global(.daily-image) { width: 100%; height: auto; flex: none; display: block; border-radius: calc(var(--radius) - 4px); }
   .daily-calendar { border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
   .calendar-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
   .calendar-title { font: 12px var(--font-mono); letter-spacing: .06em; }

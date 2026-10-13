@@ -13,6 +13,8 @@
 - `/` 下未匹配的 `/api/*` 路径、`/article-shell` 直接访问统一返回 404 页面；`/api/:collection` 改用 `Map` 查找，避免匹配到原型链属性（如 `constructor`）。
 - `html_handling = "drop-trailing-slash"`：`/blog`、`/about` 等规范地址直接返回 200，带斜杠的地址跳转到无斜杠版本。
 - 删除 `public/_routes.json`。
+- 每日新闻抓取防错标：当 UAPI 实时生成失败、缓存回吐与最新归档相同（SHA-256 一致）的旧图时不再落盘，避免把旧图存成当天日期；补偿 Cron 稍后重试，恢复后自动补齐。
+- `/daily` 布局：新闻图查看区改为限高（`min(72vh, 640px)`）内部滚动，长图不再把下方「限时免费」推远。
 
 ### 新增
 
