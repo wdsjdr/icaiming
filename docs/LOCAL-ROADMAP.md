@@ -38,7 +38,7 @@ icaiming-content/ → 校验 / 生成文章索引 → 本地 R2
 - `pnpm dev` 负责准备内容、构建、启动 Pages 运行时，并监听代码与内容变化。
 - Markdown frontmatter 是文章元数据来源；`posts/index.json` 由脚本生成，草稿及未来日期文章不发布。
 - 新增与修改内容经本地同步即可生效；正文先写入，索引最后更新。
-- 首页和列表通过 `/api/*` 读取内容；详情由 `functions/blog/[slug].ts` 读取 R2 并注入 Astro 文章模板，返回带正文、标题、描述、canonical 的 HTML。
+- 首页和列表通过 `/api/*` 读取内容；详情由 `src/worker/handlers/blog.ts` 读取 R2 并注入 Astro 文章模板，返回带正文、标题、描述、canonical 的 HTML。
 - 动态文章不使用构建时枚举 slug；真实 404、异常响应、缓存策略与安全 Markdown 渲染一并完成。
 - 新增 `site/profile.json`、`site/home.json`、`projects/index.json`。资料未提供的经历和 PDF 显示诚实的空状态。
 

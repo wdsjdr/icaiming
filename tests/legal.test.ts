@@ -67,7 +67,7 @@ test('the contact email is the one published in the site profile', { skip: !exis
 });
 
 test('sitemap, footer and robots.txt expose the legal pages', () => {
-  const sitemap = read('../functions/sitemap.xml.ts');
+  const sitemap = read('../src/worker/handlers/feeds.ts');
   for (const path of legalPaths) assert.ok(sitemap.includes(`'${path}'`), `sitemap lists ${path}`);
   assert.ok(read('../src/components/layout/Footer.astro').includes('href="/legal"'), 'footer links to /legal');
   assert.ok(read('../public/robots.txt').includes('/legal/notices#article-2'), 'robots.txt points to the crawler policy');

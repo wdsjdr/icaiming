@@ -1,5 +1,0 @@
-{
-  "version": 1,
-  "include": ["/api/*", "/blog/*", "/rss.xml", "/sitemap.xml", "/media/*", "/daily-image/*", "/article-shell*"],
-  "exclude": []
-}

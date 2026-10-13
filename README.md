@@ -35,10 +35,10 @@ pnpm dev
 | `pnpm content:sync` | 手动同步内容至本地 R2 |
 | `pnpm check` | 分别检查 Astro/浏览器代码及 Workers 类型 |
 | `pnpm build` | 构建静态页面与共用文章模板 |
-| `pnpm preview` | 运行已有 dist + 本地 R2（先执行同步与构建） |
+| `pnpm preview` | 运行已有 dist + 本地 R2（`wrangler dev`，启动时按 `[build]` 先构建） |
 | `pnpm test` | 内容契约、发布规则、Markdown 安全边界及榜单解析测试 |
 | `pnpm test:local` | 对运行中的 `pnpm dev` 验证内容新增、修改、草稿和无需重建 |
-| `pnpm dev:ui` | 仅 Astro 热更新预览，不启动 Functions/R2；日常完整预览用 `pnpm dev` |
+| `pnpm dev:ui` | 仅 Astro 热更新预览，不启动 Worker/R2；日常完整预览用 `pnpm dev` |
 | `pnpm aggregator:dev` | 本地运行聚合 Worker，`GET /run` 立即执行全部抓取任务 |
 | `pnpm aggregator:deploy` | 部署聚合 Worker（含 6 小时 Cron 与每日任务） |
 
@@ -87,7 +87,7 @@ pnpm dev
 
 ### 发布到生产 R2
 
-本地导入器默认只写本地 R2（`pnpm content:sync`）。要把内容发布到生产桶 `icaiming-content`（内容更新不触发 Pages 构建）：
+本地导入器默认只写本地 R2（`pnpm content:sync`）。要把内容发布到生产桶 `icaiming-content`（内容更新不触发站点重新部署）：
 
 1. 在 Cloudflare 控制台创建 **R2 API 令牌**（权限 `Object Read & Write`，范围限定该桶），取得 Access Key ID 与 Secret Access Key。
 2. 写入 `.dev.vars`（已在 `.gitignore`，不会提交）：
@@ -112,14 +112,23 @@ src/lib/               内容契约、浏览器渲染、主题逻辑、法律文
 src/server/            R2 服务、Markdown 渲染
 src/styles/            主题、分区、长文和动效样式
 src/stores/            Nanostores 偏好状态
-functions/             API、文章运行时 HTML、媒体、RSS、sitemap
+src/worker/            站点 Worker：index.ts 路由，handlers/ 下为 API、文章、媒体、RSS 与 sitemap
 workers/aggregator/    定时抓取榜单、热榜、限免与一言写入 R2 的独立 Worker
 scripts/               本地同步、开发与集成验证
 tests/                 必要的数据及渲染测试
 docs/                  实施计划、品牌规范和验收记录
 ```
 
-`article-shell` 由 Astro 构建，Function 通过静态资源绑定取出模板，使用 HTMLRewriter 注入正文和 meta。外部直接访问模板返回 404。浏览器包不包含 YAML 解析或服务端 Markdown 渲染库。
+`article-shell` 由 Astro 构建，Worker 通过 `ASSETS` 绑定取出模板，使用 HTMLRewriter 注入正文和 meta。外部直接访问模板返回 404。浏览器包不包含 YAML 解析或服务端 Markdown 渲染库。
+
+## 部署
+
+站点是一个 Cloudflare Worker（`wrangler.toml`：`main` 为 `src/worker/index.ts`，`[assets]` 指向 `dist`）。Workers Builds 连接本仓库 `main` 分支：每次推送时执行 `wrangler.toml` 中的 `[build]`（`pnpm build`），再部署。
+
+- R2 绑定 `CONTENT_BUCKET` 写在 `wrangler.toml` 中，随部署生效，不需要在控制台手动绑定。
+- `LOCAL_DEV` 不写入 `wrangler.toml`，生产环境启用边缘缓存；本地由 `pnpm dev` 通过 `--var LOCAL_DEV:true` 传入。
+- 路径 `/api/*`、`/blog/*`、`/daily-image/*`、`/media/*`、`/rss.xml`、`/sitemap.xml`、`/article-shell*` 先经 Worker 处理，其余直接由静态资源返回。
+- 自定义域名绑定在 Worker 的 Settings → Domains & Routes 中。
 
 Wrangler 与 Miniflare 使用配套版本，前后端 TypeScript 配置独立，避免 Workers `Element` 等类型污染浏览器 DOM。
 
@@ -132,4 +141,4 @@ Wrangler 与 Miniflare 使用配套版本，前后端 TypeScript 配置独立，
 
 聚合 Worker（`workers/aggregator`）用 **2 个 Cron 触发器**（免费计划上限 5）：`0 */6 * * *` 抓 GitHub Trending 与热榜 5 平台，`0 1 * * *`（北京 09:00）抓每日新闻并顺带 Epic 限免与一言池。更多数据源优先并入现有触发器，按 `Source` 接口扩展，需先确认接口与字段。
 
-后续：GSAP ScrollTrigger / Lenis 滚动增强、更多实验、更多榜单数据源（Artificial Analysis / LMSYS / OpenRouter / RSS）及扩展皮肤。正式部署（Cloudflare Pages + R2 `icaiming-content`）在本地验收和确认之后安排。
+后续：GSAP ScrollTrigger / Lenis 滚动增强、更多实验、更多榜单数据源（Artificial Analysis / LMSYS / OpenRouter / RSS）及扩展皮肤。正式部署见上文「部署」一节。

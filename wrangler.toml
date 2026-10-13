@@ -1,7 +1,19 @@
 name = "icaiming"
+main = "src/worker/index.ts"
 compatibility_date = "2025-10-11"
 compatibility_flags = ["nodejs_compat"]
-pages_build_output_dir = "./dist"
+
+# Build the Astro site before wrangler bundles the Worker and uploads ./dist.
+[build]
+command = "pnpm build"
+
+# Static site output. Paths listed in run_worker_first go to the Worker; everything else is served directly.
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "404-page"
+html_handling = "drop-trailing-slash"
+run_worker_first = ["/api/*", "/blog/*", "/daily-image/*", "/media/*", "/rss.xml", "/sitemap.xml", "/article-shell*"]
 
 [[r2_buckets]]
 binding = "CONTENT_BUCKET"

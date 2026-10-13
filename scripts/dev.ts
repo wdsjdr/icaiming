@@ -13,8 +13,9 @@ function build() {
   });
 }
 await syncContent();
-await build();
-const server: ChildProcess = spawn(process.execPath, [wrangler, 'pages', 'dev', '--persist-to', persist, '--show-interactive-dev-session=false'], {
+// The initial site build runs as wrangler's [build] command; build() below only handles later code changes.
+// LOCAL_DEV=true disables edge caching so local content changes appear on refresh.
+const server: ChildProcess = spawn(process.execPath, [wrangler, 'dev', '--persist-to', persist, '--var', 'LOCAL_DEV:true', '--show-interactive-dev-session=false'], {
   cwd: root, stdio: 'inherit', env: { ...process.env, WRANGLER_SEND_METRICS: 'false' },
 });
 let queue = Promise.resolve();

@@ -11,7 +11,7 @@
     "content:check": "tsx scripts/content.ts --check",
     "content:publish": "tsx scripts/content.ts --publish",
     "build": "astro build",
-    "preview": "wrangler pages dev",
+    "preview": "wrangler dev",
     "check": "astro check && tsc --noEmit -p tsconfig.workers.json",
     "test": "tsx --test tests/*.test.ts",
     "test:local": "tsx scripts/verify-local.ts",

@@ -1,13 +1,14 @@
-import type { PagesFunction } from '@cloudflare/workers-types';
-import { readPost, cacheControl, HttpError, type Env } from '../../src/server/r2';
-import { renderMarkdown, escapeHtml } from '../../src/server/markdown';
+import { HttpError, readPost, cacheControl, type Env } from '../../server/r2';
+import { renderMarkdown, escapeHtml } from '../../server/markdown';
+import { decodeParam, notFoundPage, type Handler } from '../shared';
 
-export const onRequestGet: PagesFunction<Env> = async ({ request, env, params }) => {
+export const blogPost: Handler = async (request, env, params) => {
   try {
-    const post = await readPost(env, String(params.slug));
+    const post = await readPost(env, decodeParam(params[0]));
     const { html, headings } = await renderMarkdown(post.body);
     const url = new URL(request.url); url.pathname = `/blog/${post.meta.slug}`; url.search = '';
-    const templateUrl = new URL('/article-shell/', request.url);
+    // No trailing slash: with drop-trailing-slash, a slashed path is answered with a redirect, not the template.
+    const templateUrl = new URL('/article-shell', request.url);
     const template = await env.ASSETS.fetch(new Request(templateUrl));
     if (!template.ok) throw new Error('Article template unavailable');
     const title = `${post.meta.title} — IC Aiming`;
@@ -32,11 +33,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
     return new Response(transformed.body, { headers });
   } catch (error) {
     const status = error instanceof HttpError ? error.status : 503;
-    if (status === 404) {
-      const missing = await env.ASSETS.fetch(new URL('/404.html', request.url));
-      return new Response(missing.body, { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
-    }
+    if (status === 404) return notFoundPage(request, env);
     console.error('[article]', error);
     return new Response('<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>暂时无法读取 — IC Aiming</title><h1>文章暂时无法读取</h1><p>请稍后刷新重试。</p><a href="/blog">返回博客</a></html>', { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
   }
 };
+
+// The article shell is a template, not a page: direct requests get the 404 page.
+export const articleShellBlocked: Handler = (request, env) => notFoundPage(request, env);

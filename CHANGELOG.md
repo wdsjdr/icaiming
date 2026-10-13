@@ -4,6 +4,14 @@
 
 ## [未发布]
 
+### 变更
+
+- 站点由 Cloudflare Pages 迁移为 Worker：`functions/` 的 12 个 Pages Function 合并为 `src/worker/index.ts` 路由加 `src/worker/handlers/`（api、blog、media、feeds），静态页面由 `[assets]` 绑定提供，`wrangler.toml` 的 `main`、`[assets]`、`[build]` 替代 `pages_build_output_dir`。
+- `pnpm dev` 与 `pnpm preview` 改用 `wrangler dev`，`pnpm dev` 通过 `--var LOCAL_DEV:true` 关闭本地缓存；`pnpm dev` 不再重复执行初始构建。
+- `/` 下未匹配的 `/api/*` 路径、`/article-shell` 直接访问统一返回 404 页面；`/api/:collection` 改用 `Map` 查找，避免匹配到原型链属性（如 `constructor`）。
+- `html_handling = "drop-trailing-slash"`：`/blog`、`/about` 等规范地址直接返回 200，带斜杠的地址跳转到无斜杠版本。
+- 删除 `public/_routes.json`。
+
 ### 新增
 
 - 首页 Hero 背景「流光」：Reynolds Boids 以拖拽的光线呈现（无鸟类形态），加入缓弯主流向、连续柔线拖尾与更轻的指针扰动；雷达面板坐标显示群体质心。
