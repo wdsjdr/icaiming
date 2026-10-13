@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parsePost, isPublished, resourcesSchema } from '../src/lib/content';
 import { renderMarkdown } from '../src/server/markdown';
-import { readPost, HttpError, type Env } from '../src/server/r2';
+import { readPost, readPosts, clearPostsCache, HttpError, type Env } from '../src/server/r2';
 
 const document = (extra = '', body = '这是正文。') => `---\ntitle: 测试文章\ndescription: 一段摘要\ndate: "2026-10-10"\n${extra}---\n${body}`;
 
@@ -41,12 +41,46 @@ test('Markdown strips active HTML and unsafe URLs while retaining code, GFM and 
   for (const heading of result.headings) assert.ok(result.html.includes(`id="${heading.id}"`));
 });
 
-test('direct article reads enforce the published index AND the current body draft flag', async () => {
-  const meta = parsePost(document('draft: false\n'), 'visible').meta;
-  const env = { CONTENT_BUCKET: { get: async (key: string) => {
-    if (key === 'posts/index.json') return { json: async () => ({ posts: [meta] }) };
-    return { text: async () => document('draft: true\n'), httpEtag: 'test' };
-  } } } as unknown as Env;
-  await assert.rejects(() => readPost(env, 'unlisted'), (error) => error instanceof HttpError && error.status === 404);
-  await assert.rejects(() => readPost(env, 'visible'), (error) => error instanceof HttpError && error.status === 404);
+// Minimal R2 bucket double: paginated list() over prefixes and get() returning text bodies.
+function mockBucket(files: Record<string, string>, pageSize = 2) {
+  const keys = Object.keys(files).sort();
+  return {
+    list: async ({ prefix, cursor }: { prefix: string; cursor?: string }) => {
+      const matching = keys.filter((key) => key.startsWith(prefix));
+      const start = cursor ? Number(cursor) : 0;
+      const next = start + pageSize;
+      const truncated = next < matching.length;
+      return { objects: matching.slice(start, next).map((key) => ({ key })), truncated, cursor: truncated ? String(next) : undefined };
+    },
+    get: async (key: string) => (key in files ? { text: async () => files[key], httpEtag: `"${key}"` } : null),
+  };
+}
+const articleDoc = (title: string, date: string, extra = '') => `---\ntitle: ${title}\ndescription: 摘要\ndate: "${date}"\n${extra}---\n正文内容。`;
+const isNotFound = (error: unknown) => error instanceof HttpError && error.status === 404;
+
+test('article list is built from R2 posts/ objects: drafts, future and malformed files excluded, newest first', async () => {
+  clearPostsCache();
+  const env = { CONTENT_BUCKET: mockBucket({
+    'posts/older.md': articleDoc('旧文', '2020-01-01'),
+    'posts/newer.md': articleDoc('新文', '2020-06-01'),
+    'posts/draft.md': articleDoc('草稿', '2020-07-01', 'draft: true\n'),
+    'posts/future.md': articleDoc('未来', '2999-01-01'),
+    'posts/broken.md': 'no frontmatter',
+    'posts/index.json': '{"posts":[]}',
+    'rankings/combined.json': '{}',
+  }) } as unknown as Env;
+  const posts = await readPosts(env);
+  assert.deepEqual(posts.map((post) => post.slug), ['newer', 'older']);
+  clearPostsCache();
+});
+
+test('direct article reads go to R2 and enforce slug format and the body draft flag', async () => {
+  const env = { CONTENT_BUCKET: mockBucket({
+    'posts/visible.md': articleDoc('可见', '2020-01-01'),
+    'posts/draft-post.md': articleDoc('草稿', '2020-01-01', 'draft: true\n'),
+  }) } as unknown as Env;
+  assert.equal((await readPost(env, 'visible')).meta.slug, 'visible');
+  await assert.rejects(() => readPost(env, 'draft-post'), isNotFound);
+  await assert.rejects(() => readPost(env, 'missing'), isNotFound);
+  await assert.rejects(() => readPost(env, '../secret'), isNotFound);
 });

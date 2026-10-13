@@ -77,9 +77,9 @@ pnpm dev
 
 ## 内容维护
 
-详细格式见 [`../icaiming-content/README.md`](../icaiming-content/README.md)。所有索引以 Markdown frontmatter 生成；不要手工修改 `posts/index.json`。
+详细格式见 [`../icaiming-content/README.md`](../icaiming-content/README.md)。
 
-新增文章时只需要在内容仓库创建 `posts/my-note.md`。正文和索引通过本地导入器写入 R2，文章 URL 不依赖构建时的 slug 列表。无效数据在写入前被拒绝；草稿和未来日期文章不会发布。未来日期以 UTC 日历日计算，日期到达后需再次同步或重启开发服务。
+文章由站点运行时直接读取 R2：列出 `posts/*.md` 对象，解析 frontmatter，过滤草稿和未来日期文章。发布流程不变，在内容仓库本地编辑后执行 `pnpm content:publish` 上传；直接在 R2 中新增、修改或删除的文章同样会自动生效，无需重新发布或重建。文章列表在每个 Worker 实例内缓存 60 秒（`LOCAL_DEV=true` 时不缓存）；单篇文章读取不缓存。`posts/index.json` 已不再被站点读取，损坏的单篇文章会被跳过并记录日志，不影响其他文章。未来日期以 UTC 日历日计算，到达当天后约 60 秒内自动上线。
 
 `site/profile.json` 管理介绍、邮件和社交账号；`site/home.json` 管理首页介绍；`projects/index.json`、`resources/index.json`、`downloads/index.json`、`resume/resume.json` 管理相应页面。`downloads/index.json` 中的 `file` 必须指向 `assets/` 或 `downloads/` 下已存在的文件，导入时会校验。
 
