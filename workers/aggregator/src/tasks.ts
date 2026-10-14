@@ -1,5 +1,6 @@
 import { combine } from './combine';
 import { beijingDate, dailyNewsKey, isOlderThan, parseDailyNewsKey, shiftDate } from './date';
+import { hashDistance, imageHash } from './image-hash';
 import { jsonMeta, readExisting, sleep } from './http';
 import { githubTrending } from './sources/github';
 import { fetchHotboard, parsePlatforms, type HotboardFile } from './sources/hotboard';
@@ -59,30 +60,36 @@ export async function runEpic(env: Env): Promise<TaskResult> {
   return { task: 'epic', ok: items.length, failed: 0 };
 }
 
-async function sha256(bytes: ArrayBuffer): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
-// The newest archived image strictly before `before`, used to spot an upstream response that has not changed.
-async function latestNewsDateBefore(env: Env, before: string): Promise<string | null> {
-  let latest: string | null = null;
+// The newest archived dates strictly before `before`, used to spot an upstream response that has not
+// changed. Several dates are kept so a gap in the archive does not defeat the comparison.
+async function recentNewsDatesBefore(env: Env, before: string, limit: number): Promise<string[]> {
+  const dates = new Set<string>();
   let cursor: string | undefined;
   do {
     const listed = await env.CONTENT_BUCKET.list({ prefix: 'misc/daily-news/', cursor });
     for (const object of listed.objects) {
       const date = parseDailyNewsKey(object.key);
-      if (date && date < before && (!latest || date > latest)) latest = date;
+      if (date && date < before) dates.add(date);
     }
     cursor = listed.truncated ? listed.cursor : undefined;
   } while (cursor);
-  return latest;
+  return [...dates].sort((a, b) => b.localeCompare(a)).slice(0, limit);
 }
 
-async function hasSameImage(env: Env, date: string, bytes: ArrayBuffer): Promise<boolean> {
-  const object = await env.CONTENT_BUCKET.get(dailyNewsKey(date));
-  if (!object || object.size !== bytes.byteLength) return false;
-  return (await sha256(await object.arrayBuffer())) === (await sha256(bytes));
+// Out of 64 bits. Identical pictures stay well under this even after re-encoding; genuinely
+// different front pages differ far more.
+const SAME_IMAGE_DISTANCE = 6;
+
+async function isStaleImage(env: Env, previousDates: string[], bytes: ArrayBuffer): Promise<boolean> {
+  const hash = imageHash(bytes);
+  if (!hash) return false;
+  for (const date of previousDates) {
+    const object = await env.CONTENT_BUCKET.get(dailyNewsKey(date));
+    if (!object) continue;
+    const known = imageHash(await object.arrayBuffer());
+    if (known && hashDistance(hash, known) <= SAME_IMAGE_DISTANCE) return true;
+  }
+  return false;
 }
 
 export async function runDailyNews(env: Env): Promise<TaskResult> {
@@ -91,16 +98,17 @@ export async function runDailyNews(env: Env): Promise<TaskResult> {
   let available = Boolean(await env.CONTENT_BUCKET.head(key));
   let stale = false;
   if (!available) {
-    // When its live render fails, UAPI keeps serving the last successful image. A fresh response
-    // identical to the newest archived image means "not updated yet": skip storing it instead of
-    // mislabeling a stale image with today's date. The compensation cron retries later.
-    const previous = await latestNewsDateBefore(env, today);
+    // When its live render lags, UAPI keeps serving the previous day's picture (re-rendered, so the
+    // bytes differ). A fresh response that looks like a recent archived image means "not updated
+    // yet": skip storing it instead of mislabeling yesterday's picture with today's date. The
+    // compensation cron retries later.
+    const previousDates = await recentNewsDatesBefore(env, today, 3);
     for (let attempt = 0; attempt < 3 && !available; attempt++) {
       if (attempt > 0) await sleep(1500 * attempt);
       try {
         const image = await fetchDailyNewsImage(env);
-        if (previous && await hasSameImage(env, previous, image.bytes)) { stale = true; break; }
-        await env.CONTENT_BUCKET.put(key, image.bytes, { httpMetadata: { contentType: image.contentType, cacheControl: 'public, max-age=31536000, immutable' } });
+        if (await isStaleImage(env, previousDates, image.bytes)) { stale = true; break; }
+        await env.CONTENT_BUCKET.put(key, image.bytes, { httpMetadata: { contentType: image.contentType } });
         available = true;
       } catch (error) { console.error('[daily-news]', error); }
     }

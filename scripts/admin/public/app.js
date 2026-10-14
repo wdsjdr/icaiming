@@ -1,5 +1,5 @@
 const token = document.querySelector('meta[name="admin-token"]').content;
-const state = { tab: 'overview', siteOrigin: 'http://127.0.0.1:4321', mediaFiles: [], dirty: false };
+const state = { tab: 'overview', siteOrigin: 'http://127.0.0.1:4321', dirty: false };
 
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const val = (id) => document.getElementById(id).value.trim();
@@ -79,7 +79,7 @@ const ITEM_FIELDS = {
     { key: 'title', label: '名称', required: true },
     { key: 'description', label: '描述', required: true },
     { key: 'category', label: '分类', required: true },
-    { key: 'file', label: '文件（assets/ 或 downloads/）', required: true, kind: 'file' },
+    { key: 'source', label: '资源来源（本地文件或外部链接，二选一）', kind: 'fileOrUrl' },
     { key: 'size', label: '大小（可选）' },
     { key: 'updated', label: '更新日期（可选）', kind: 'date' },
     { key: 'tags', label: '标签（逗号分隔）', kind: 'tags' },
@@ -93,13 +93,133 @@ const ITEM_FIELDS = {
   ],
 };
 
-function fieldHtml(field, value) {
-  const classes = field.kind === 'file' ? ' class="code"' : field.kind === 'tags' ? ' class="tag-input"' : '';
-  const listAttr = field.kind === 'file' ? ' list="media-files"' : '';
-  const uploader = field.kind === 'file'
-    ? `<div class="row" style="margin-top:6px"><input type="file" data-file-input hidden><button type="button" class="btn small" data-file-upload>上传文件并填入</button><span class="hint" style="margin:0">也可直接填写已有路径</span></div>`
-    : '';
-  return `<label class="field"><span>${esc(field.label)}</span><input data-key="${field.key}" value="${esc(value || '')}"${listAttr}${classes}><small class="field-error" hidden></small>${uploader}</label>`;
+const IMAGE_EXT = /\.(png|jpe?g|webp|gif|svg|avif|ico)$/i;
+
+function mediaPreview(path) {
+  if (!path || !IMAGE_EXT.test(path)) return '';
+  return `<img class="media-preview" src="/media/${esc(path)}" alt="" loading="lazy">`;
+}
+
+function fieldHtml(field, item) {
+  if (field.kind === 'fileOrUrl') {
+    const file = item.file || '';
+    const url = item.url || '';
+    const isUrl = Boolean(url);
+    return `<label class="field"><span>${esc(field.label)}</span>
+      <div class="row source-row">
+        <select data-srcmode data-no-dirty>
+          <option value="file"${isUrl ? '' : ' selected'}>本地文件</option>
+          <option value="url"${isUrl ? ' selected' : ''}>外部链接</option>
+        </select>
+        <input data-key="file" class="code" value="${esc(file)}" placeholder="assets/… 或 downloads/…"${isUrl ? ' hidden' : ''}>
+        <input data-key="url" value="${esc(url)}" placeholder="https://…"${isUrl ? '' : ' hidden'}>
+        <button type="button" class="btn small" data-file-pick${isUrl ? ' hidden' : ''}>选择 / 上传…</button>
+        <button type="button" class="btn small" data-clear${file || url ? '' : ' hidden'}>清除</button>
+      </div><small class="field-error" hidden></small></label>`;
+  }
+  const classes = field.kind === 'tags' ? ' class="tag-input"' : '';
+  const value = item[field.key];
+  return `<label class="field"><span>${esc(field.label)}</span><input data-key="${field.key}" value="${esc(value || '')}"${classes}><small class="field-error" hidden></small></label>`;
+}
+
+function drawPreview(element) {
+  const input = element.querySelector('[data-key="file"]');
+  if (!input) return;
+  const label = input.closest('label');
+  let slot = label.querySelector('.media-preview-wrap');
+  const html = mediaPreview(input.value.trim());
+  if (!html) { if (slot) slot.remove(); return; }
+  if (!slot) { slot = document.createElement('div'); slot.className = 'media-preview-wrap'; label.appendChild(slot); }
+  slot.innerHTML = html;
+}
+
+function wireFileOrUrl(element) {
+  const modeSelect = element.querySelector('[data-srcmode]');
+  if (!modeSelect) return;
+  const fileInput = element.querySelector('[data-key="file"]');
+  const urlInput = element.querySelector('[data-key="url"]');
+  const pickButton = element.querySelector('[data-file-pick]');
+  const clearButton = element.querySelector('[data-clear]');
+  const sync = () => {
+    const isUrl = modeSelect.value === 'url';
+    fileInput.hidden = isUrl;
+    urlInput.hidden = !isUrl;
+    if (pickButton) pickButton.hidden = isUrl;
+    if (clearButton) clearButton.hidden = !(fileInput.value.trim() || urlInput.value.trim());
+    drawPreview(element);
+  };
+  modeSelect.onchange = () => { sync(); markDirty(); };
+  if (pickButton) {
+    pickButton.onclick = () => openMediaPicker((path, size) => {
+      fileInput.value = path;
+      const sizeField = element.querySelector('[data-key="size"]');
+      if (sizeField && !sizeField.value.trim() && size) sizeField.value = fmtSize(size);
+      sync();
+      markDirty();
+    });
+  }
+  if (clearButton) clearButton.onclick = () => { fileInput.value = ''; urlInput.value = ''; sync(); markDirty(); };
+  fileInput.oninput = sync;
+  urlInput.oninput = sync;
+  drawPreview(element);
+}
+
+const PICKER_FOLDERS = ['assets/images', 'assets/icons', 'assets/brand', 'assets/lottie', 'assets/models', 'downloads', 'resume'];
+const pickerState = { files: [] };
+let pickerDialog = null;
+
+async function openMediaPicker(onPick) {
+  if (!pickerDialog) {
+    pickerDialog = document.createElement('dialog');
+    pickerDialog.className = 'picker';
+    document.body.appendChild(pickerDialog);
+  }
+  const draw = () => {
+    const filter = pickerDialog.querySelector('[data-picker-filter]');
+    const query = filter.value.trim().toLowerCase();
+    const list = pickerDialog.querySelector('[data-picker-list]');
+    const items = pickerState.files.filter((file) => file.path.toLowerCase().includes(query));
+    list.innerHTML = items.map((file) => `<button type="button" class="picker-item" data-pick="${esc(file.path)}" data-size="${file.size}">
+        ${IMAGE_EXT.test(file.path) ? `<img src="/media/${esc(file.path)}" alt="" loading="lazy">` : '<span class="picker-icon">▤</span>'}
+        <span class="picker-path">${esc(file.path)}</span>
+        <span class="picker-size">${fmtSize(file.size)}</span>
+      </button>`).join('') || '<p class="muted">没有匹配的文件</p>';
+    list.querySelectorAll('[data-pick]').forEach((button) => {
+      button.onclick = () => { onPick(button.dataset.pick, Number(button.dataset.size)); pickerDialog.close(); };
+    });
+  };
+  pickerDialog.innerHTML = `
+    <div class="picker-head"><h2>选择资源</h2><button type="button" class="btn small" data-picker-close>关闭</button></div>
+    <div class="row picker-tools">
+      <input type="search" data-picker-filter class="code" placeholder="按路径筛选…">
+      <select data-picker-folder>${PICKER_FOLDERS.map((folder) => `<option>${esc(folder)}</option>`).join('')}</select>
+      <input type="file" data-picker-file multiple hidden>
+      <button type="button" class="btn" data-picker-upload>上传到此目录</button>
+    </div>
+    <div class="picker-list" data-picker-list></div>`;
+  const refresh = async () => {
+    const media = await api('/api/media');
+    pickerState.files = [...media.assets, ...media.downloads, ...media.resume];
+    draw();
+  };
+  pickerDialog.querySelector('[data-picker-filter]').oninput = draw;
+  pickerDialog.querySelector('[data-picker-close]').onclick = () => pickerDialog.close();
+  const fileInput = pickerDialog.querySelector('[data-picker-file]');
+  pickerDialog.querySelector('[data-picker-upload]').onclick = () => fileInput.click();
+  fileInput.onchange = async () => {
+    const folder = pickerDialog.querySelector('[data-picker-folder]').value;
+    const files = [...fileInput.files];
+    fileInput.value = '';
+    let last = null;
+    let renamed = 0;
+    for (const file of files) {
+      const result = await act(() => api(`/api/media/upload?folder=${encodeURIComponent(folder)}&name=${encodeURIComponent(file.name)}`, { body: file, type: file.type || 'application/octet-stream' }));
+      if (result) { last = result; if (result.renamed) renamed += 1; }
+    }
+    if (last) { toast(`已上传${renamed ? `（${renamed} 个已重命名）` : ''}，选择它或继续上传`); await refresh(); }
+  };
+  await refresh();
+  if (!pickerDialog.open) pickerDialog.showModal();
 }
 
 function isWebUrl(value) {
@@ -112,6 +232,7 @@ function isWebUrl(value) {
 }
 
 const SITE_PATH_PATTERN = /^\/(?!\/)[^\\\s]*$/;
+const SITE_FILE_PATTERN = /^(?:assets|downloads)\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/;
 
 function isIsoDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -123,7 +244,19 @@ function itemIssues(container, config) {
   const issues = [];
   for (const card of container.querySelectorAll('[data-item]')) {
     for (const field of config) {
+      if (field.kind === 'fileOrUrl') {
+        const mode = card.querySelector('[data-srcmode]')?.value === 'url' ? 'url' : 'file';
+        const input = card.querySelector(`[data-key="${mode}"]`);
+        const value = input.value.trim();
+        let message = '';
+        if (!value) message = mode === 'url' ? '请填写外部链接' : '请选择或上传本地文件';
+        else if (mode === 'url' && !isWebUrl(value)) message = '链接需以 http:// 或 https:// 开头';
+        else if (mode === 'file' && !SITE_FILE_PATTERN.test(value)) message = '路径需以 assets/ 或 downloads/ 开头';
+        if (message) issues.push({ card, input, message });
+        continue;
+      }
       const input = card.querySelector(`[data-key="${field.key}"]`);
+      if (!input) continue;
       const value = input.value.trim();
       let message = '';
       if (field.required && !value) message = `请填写${field.label.replace(/（.*）$/, '')}`;
@@ -520,7 +653,7 @@ views.aggregator = async (view) => {
   const ready = Boolean(info.aggregator.runToken);
   view.innerHTML = `
     <h1>聚合任务</h1>
-    <p class="muted">手动执行聚合 Worker（<code>${esc(info.aggregator.url)}</code>）的单个抓取任务，结果直接写入 R2。定时任务由 Cron 自动执行，这里用于补抓或验证。出站代理：${info.aggregator.proxy ? `<code>${esc(info.aggregator.proxy)}</code>` : '未配置（直连）'}。</p>
+    <p class="muted">手动执行聚合 Worker（<code>${esc(info.aggregator.url)}</code>）的单个抓取任务，结果直接写入 R2。定时任务由 Cron 自动执行，这里用于补抓或验证。出站：${info.aggregator.proxy ? `代理 <code>${esc(info.aggregator.proxy)}</code>${info.aggregator.network === 'proxy' ? '（当前使用中）' : '（当前不可达，直连中；连接失败会自动重试）'}` : '未配置（直连 Cloudflare）'}。</p>
     <div class="panel">
       <h2 style="margin-top:0">RUN_TOKEN</h2>
       <p class="muted">${ready
@@ -776,10 +909,6 @@ async function renderItems(view, id) {
   const config = ITEM_FIELDS[id];
   const data = await api(`/api/collections/${id}`);
   if (!data.valid) { renderRawCollection(view, id, data); return; }
-  if (id === 'downloads') {
-    const media = await api('/api/media');
-    state.mediaFiles = [...media.assets, ...media.downloads].map((file) => file.path);
-  }
   view.innerHTML = `
     <div class="toolbar">
       <h1 style="margin:0">${esc(COLLECTION_LABELS[id])}</h1>
@@ -790,7 +919,6 @@ async function renderItems(view, id) {
     </div>
     <p class="muted">共 ${data.value.items.length} 条，顺序即前台展示顺序；修改后点击保存生效。</p>
     <div id="items"></div>
-    <datalist id="media-files">${state.mediaFiles.map((path) => `<option value="${esc(path)}"></option>`).join('')}</datalist>
   `;
   const container = document.getElementById('items');
   const refreshMoveButtons = () => {
@@ -804,7 +932,7 @@ async function renderItems(view, id) {
     const element = document.createElement('div');
     element.className = 'item-card';
     element.dataset.item = '';
-    element.innerHTML = config.map((field) => fieldHtml(field, item[field.key])).join('') +
+    element.innerHTML = config.map((field) => fieldHtml(field, item)).join('') +
       `<div class="row" style="justify-content:flex-end">
         <button class="btn small" data-move="up" aria-label="上移本条">上移</button>
         <button class="btn small" data-move="down" aria-label="下移本条">下移</button>
@@ -833,22 +961,7 @@ async function renderItems(view, id) {
         markDirty();
       }
     };
-    const uploadButton = element.querySelector('[data-file-upload]');
-    if (uploadButton) {
-      const fileInput = element.querySelector('[data-file-input]');
-      uploadButton.onclick = () => fileInput.click();
-      fileInput.onchange = async () => {
-        const file = fileInput.files[0];
-        if (!file) return;
-        const result = await act(() => api(`/api/media/upload?folder=downloads&name=${encodeURIComponent(file.name)}`, { body: file, type: file.type || 'application/octet-stream' }));
-        if (!result) return;
-        element.querySelector('[data-key="file"]').value = result.path;
-        const sizeField = element.querySelector('[data-key="size"]');
-        if (sizeField && !sizeField.value.trim()) sizeField.value = fmtSize(result.size ?? 0);
-        markDirty();
-        toast(result.renamed ? `已上传并填入 ${result.path}（文件名已调整）` : `已上传并填入 ${result.path}`);
-      };
-    }
+    wireFileOrUrl(element);
     if (options.focus) {
       element.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
       const firstInput = element.querySelector('input');
@@ -872,6 +985,13 @@ async function renderItems(view, id) {
     const items = [...container.querySelectorAll('[data-item]')].map((element) => {
       const item = {};
       for (const field of config) {
+        if (field.kind === 'fileOrUrl') {
+          const mode = element.querySelector('[data-srcmode]').value;
+          const file = element.querySelector('[data-key="file"]').value.trim();
+          const url = element.querySelector('[data-key="url"]').value.trim();
+          if (mode === 'url') item.url = url; else item.file = file;
+          continue;
+        }
         const raw = element.querySelector(`[data-key="${field.key}"]`).value.trim();
         if (field.kind === 'tags') item.tags = parseTags(raw);
         else if ((field.key === 'size' || field.key === 'updated') && !raw) continue;

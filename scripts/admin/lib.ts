@@ -371,10 +371,11 @@ export async function readCollection(root: string, id: string) {
 export async function validateCollection(root: string, id: string, value: unknown) {
   const def = (collections as Record<string, { file: string; schema: ZodTypeAny; label: string }>)[id];
   if (!def) throw new AdminError(404, '未知集合');
-  const parsed = def.schema.parse(value) as { items?: { file: string }[]; pdf?: string | null };
+  const parsed = def.schema.parse(value) as { items?: { file?: string }[]; pdf?: string | null };
   if (id === 'downloads') {
     for (const item of parsed.items ?? []) {
-      if (!(await exists(resolveUnder(root, item.file)))) throw new AdminError(400, `下载文件不存在：${item.file}`);
+      // External-link downloads have no local file to verify.
+      if (item.file && !(await exists(resolveUnder(root, item.file)))) throw new AdminError(400, `下载文件不存在：${item.file}`);
     }
   }
   if (id === 'resume' && parsed.pdf && !(await exists(resolveUnder(root, parsed.pdf)))) {

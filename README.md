@@ -54,10 +54,10 @@ pnpm dev
 - 「校验全部内容」等价 `content:check`（只校验本地内容）；「发布到生产 R2」等价 `content:publish`（增量上传：未变更对象跳过，完成后汇总新增/更新/跳过/删除），发布前二次确认并回显日志，`.dev.vars` 凭据只在服务端读取。文章、集合、资料/首页、简历等表单另提供「保存并发布」：先写入本地内容仓库，再立即发布到生产 R2（发布失败会提示，本地修改仍已保存）。
 - 「对比生产 R2」列出本地与线上的差异：**缺失**（本地有、线上无，发布后会补上）与**多余**（本地无、线上有，发布后会删除），用于发现「校验」看不到的线上漂移。
 - 发布按**列桶镜像**删除：上传后列出生产桶，删除所有本地已无、线上仍存的受管对象（跳过 `rankings/`、`misc/` 与 `_local/`），因此删除文章/媒体无需依赖 manifest 也能同步；文章、媒体删除后会询问是否立即发布。R2 返回弱 ETag（`W/"md5"`），发布据此跳过未变更对象。
-- 条目编辑交互：新增条目自动滚动定位并聚焦、必填与链接/日期格式就地中文校验、错误条目定位高亮、未保存修改在切换页签或关闭页面前确认、移动按钮边界禁用、工具栏吸顶；下载条目可在表单内直接上传文件并自动填入路径与大小（新建/编辑文章同样有未保存守卫）。
+- 条目编辑交互：新增条目自动滚动定位并聚焦、必填与链接/日期格式就地中文校验、错误条目定位高亮、未保存修改在切换页签或关闭页面前确认、移动按钮边界禁用、工具栏吸顶（新建/编辑文章同样有未保存守卫）。下载条目的「资源来源」用「本地文件 / 外部链接」二选一控件：本地点「选择 / 上传…」打开资源选择器（可搜索、显示缩略图与大小、按目录上传后直接选中），图片显示预览；外链直接填 URL。
 - 发布凭据（R2 令牌）可直接在「概览 → 发布凭据」粘贴更新：保存写入 `icaiming/.dev.vars`（合并保留其他行，已 gitignore），当前会话立即生效，适合 R2 令牌到期轮换；已保存的值不会回显。
 - Cloudflare 部署（「概览 → Cloudflare 部署」）：粘贴 API 令牌后先调用 `wrangler whoami` 验证，仅保存在管理页进程内存中（不写盘，关闭管理页即清除，也可手动清除）。可一键部署 `ic-aiming-aggregator`，或设置其 `RUN_TOKEN`（值经 stdin 交给 wrangler，设置成功后同样只保存在内存中）。部署会启用定时任务并消耗 UAPI 额度，均需二次确认。部署与设置令牌通过 wrangler 连接 Cloudflare，只跟随系统环境变量里的代理（`HTTPS_PROXY`），**不读取** `icaiming/.env` 的代理配置，避免因代理未运行导致部署失败。
-- 聚合任务（「聚合任务」页签）：手动执行聚合 Worker 的单个任务（`rankings`、`hotboard`、`daily-news`、`epic`、`saying`），结果以 JSON 显示。需要已就绪的 `RUN_TOKEN`：刚在概览设置过会自动就绪；管理页重启后粘贴已设置的值验证即可（验证只发送一次不带任务的请求，不执行抓取）。消耗积分的任务执行前需确认。Worker 地址默认为 `https://ic-aiming-aggregator.3043927908.workers.dev`，可用环境变量 `AGGREGATOR_URL` 覆盖（只能是域名或源，不能带路径）。若本机直连 Cloudflare 不通，在 `icaiming/.env`（已 gitignore）中加入 `HTTPS_PROXY=http://127.0.0.1:7897`（端口按你的代理软件），然后重启 `pnpm admin`。该代理只作用于管理页自身的请求（聚合任务调用、S3 发布），不会传给 wrangler 子进程；部署聚合 Worker 走系统环境变量里的代理。Node 不读取 Windows 系统代理，所以必须写在这里或设置环境变量；「聚合任务」页会显示当前使用的代理（不含凭据）。
+- 聚合任务（「聚合任务」页签）：手动执行聚合 Worker 的单个任务（`rankings`、`hotboard`、`daily-news`、`epic`、`saying`），结果以 JSON 显示。需要已就绪的 `RUN_TOKEN`：刚在概览设置过会自动就绪；管理页重启后粘贴已设置的值验证即可（验证只发送一次不带任务的请求，不执行抓取）。消耗积分的任务执行前需确认。Worker 地址默认为 `https://ic-aiming-aggregator.3043927908.workers.dev`，可用环境变量 `AGGREGATOR_URL` 覆盖（只能是域名或源，不能带路径）。若本机直连 Cloudflare 不通，在 `icaiming/.env`（已 gitignore）中加入 `HTTPS_PROXY=http://127.0.0.1:7897`（端口按你的代理软件），然后重启 `pnpm admin`。管理页启动时会**探测代理端口**：可达就走代理、不可达就直连；发布/对比/聚合调用在连接失败时会自动切换出口（代理 ↔ 直连）重试一次——所以代理程序没开也不会再出现 `fetch failed`。该代理只作用于管理页自身的请求（聚合任务调用、S3 发布），不会传给 wrangler 子进程；部署聚合 Worker 走系统环境变量里的代理。Node 不读取 Windows 系统代理，所以必须写在这里或设置环境变量；「聚合任务」页会显示代理地址与当前出口（不含凭据）。
 - 发布到生产 R2 不会改动聚合 Worker 写入的 `rankings/` 与 `misc/`：导入器的内容列表不包含这些前缀，上传与清理都会跳过它们（`tests/admin-aggregator.test.ts` 有对应断言）。
 - 安全约束：仅回环地址 + Host/Origin 校验 + 每次启动的会话令牌；`rankings/`、`misc/`、`posts/index.json` 永不可写；上传默认 50MB 上限（`ADMIN_MAX_UPLOAD_MB` 调整）。
 - Windows 快捷启动：双击工作区根目录的 `启动管理页.cmd`——检测 4321 端口，站点未运行时先开新窗口跑 `pnpm dev`，再启动管理页；额外参数会透传给 `pnpm admin`（如 `--no-open`）。
@@ -71,7 +71,7 @@ pnpm dev
 - 首页项目与最近文章、博客搜索和标签筛选。
 - `/blog/:slug` 运行时 Markdown 详情、代码块、目录、阅读进度、文章级 SEO、真实 404。
 - 动态 `/rss.xml`、`/sitemap.xml`，真实社交入口、资源分类搜索、结构化简历与 PDF 状态。
-- 发现页分栏 Tab：「精选收藏」「资源下载」「数据榜单」「热榜 · 前沿」（默认热榜，粘性标签栏，方向键可切换，首次激活才拉取）；下载项经内容仓库导入、`/media` 带 attachment 下载；榜单（GitHub 趋势）与热榜、一言由聚合 Worker 定时抓取写入 R2，前端呈现并标注更新时间，失败保留上次结果。
+- 发现页分栏 Tab：「精选收藏」「资源下载」「数据榜单」「热榜 · 前沿」（默认热榜，粘性标签栏，方向键可切换，首次激活才拉取）；下载项经内容仓库导入，本机文件以 `/media` 附件下载、外部链接在新窗口打开；榜单（GitHub 趋势）与热榜、一言由聚合 Worker 定时抓取写入 R2，前端呈现并标注更新时间，失败保留上次结果。
 - `/daily` 每日新闻日历：聚合 Worker 每日 09:00（北京）抓一张新闻图存入 R2，月历可回看近 12 个月，超过 `NEWS_RETENTION_DAYS`（默认 365 天）自动清理；日历下方展示 Epic「限时免费」游戏。
 - `/fun/focus` 聚焦练习（限时 60 秒点小球，难度递增，统计反应时间与命中率，最佳成绩存于本地 `focus-best`）与 `/fun/answerbook` 答案之书（实时转发 UAPI，免费接口，失败回退提示）；首页 status 行与页脚显示随机一言。游戏与实验条目硬编码在 `src/pages/fun/` 中，不属于内容仓库。
 - 首页开屏动画：原子 → 平面 → 翻转显示标识与标语 → 镜头穿越，Three.js + GSAP 按需加载（gzip 约 174 KB），每会话一次，可跳过；`?intro=1` 重播、`?intro=0` 关闭，详见 [品牌规范](docs/BRAND.md#开屏动画)。
@@ -86,7 +86,7 @@ pnpm dev
 
 文章由站点运行时直接读取 R2：列出 `posts/*.md` 对象，解析 frontmatter，过滤草稿和未来日期文章。发布流程不变，在内容仓库本地编辑后执行 `pnpm content:publish` 上传；直接在 R2 中新增、修改或删除的文章同样会自动生效，无需重新发布或重建。文章列表在每个 Worker 实例内缓存 60 秒（`LOCAL_DEV=true` 时不缓存）；单篇文章读取不缓存。`posts/index.json` 已不再被站点读取，损坏的单篇文章会被跳过并记录日志，不影响其他文章。未来日期以 UTC 日历日计算，到达当天后约 60 秒内自动上线。
 
-`site/profile.json` 管理介绍、邮件和社交账号；`site/home.json` 管理首页介绍；`projects/index.json`、`resources/index.json`、`downloads/index.json`、`resume/resume.json` 管理相应页面。`downloads/index.json` 中的 `file` 必须指向 `assets/` 或 `downloads/` 下已存在的文件，导入时会校验。
+`site/profile.json` 管理介绍、邮件和社交账号；`site/home.json` 管理首页介绍；`projects/index.json`、`resources/index.json`、`downloads/index.json`、`resume/resume.json` 管理相应页面。`downloads/index.json` 的每个条目需**恰好提供** `file`（`assets/` 或 `downloads/` 下已存在的文件，导入时校验）或 `url`（网络下载链接）之一。
 
 `rankings/combined.json`、`misc/hotboard/*`、`misc/epic-free.json`、`misc/saying.json` 由聚合 Worker 直接写入 R2，**内容仓库不包含这些键**（导入器不会上传/删除它们，避免覆盖线上数据）；本地首次需运行 `pnpm aggregator:dev`，再用 `Authorization: Bearer <RUN_TOKEN>` 请求 `/run?task=rankings`（可选 `hotboard`、`daily-news`、`epic`、`saying`）抓一次，缺失时前端显示空状态。`RUN_TOKEN` 写入 `workers/aggregator/.dev.vars`（已 gitignore）；线上通过 `wrangler secret put RUN_TOKEN --config workers/aggregator/wrangler.toml` 设置，未设置时 `/run` 返回 503。抓取源为 GitHub Trending 与 UAPI（热榜、Epic 限免需积分、一言免费），可用 `UAPI_KEY` secret 提升额度；积分预算见 [本地实施计划](docs/LOCAL-ROADMAP.md)。
 

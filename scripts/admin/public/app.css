@@ -192,3 +192,32 @@ input.invalid, textarea.invalid { border-color: var(--danger); }
   content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
   background: var(--warn); margin-left: 8px; vertical-align: middle;
 }
+
+.source-row select { width: auto; flex: none; }
+.source-row input { flex: 1; min-width: 180px; }
+.source-row button { white-space: nowrap; }
+.media-preview-wrap { margin-top: 8px; }
+.media-preview { max-height: 72px; border: 1px solid var(--line); border-radius: 6px; background: #0a0d12; }
+
+dialog.picker {
+  width: min(760px, 92vw); max-height: 82vh; overflow: hidden;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel); color: var(--text); padding: 0;
+}
+dialog.picker::backdrop { background: rgba(0, 0, 0, 0.55); }
+.picker-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.picker-head h2 { margin: 0; color: var(--text); font-size: 15px; }
+.picker-tools { padding: 12px 18px; border-bottom: 1px solid var(--line); }
+.picker-tools input[type="search"] { flex: 1; min-width: 160px; }
+.picker-tools select { width: auto; }
+.picker-list { padding: 10px 14px 16px; max-height: 58vh; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.picker-item {
+  display: flex; align-items: center; gap: 10px; text-align: left;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2);
+  color: var(--text); padding: 8px 10px; cursor: pointer; font: inherit; width: 100%;
+}
+.picker-item:hover { border-color: var(--accent); }
+.picker-item img { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; background: #0a0d12; flex: none; }
+.picker-item .picker-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--muted); flex: none; }
+.picker-item .picker-path { flex: 1; font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+.picker-item .picker-size { color: var(--muted); font-size: 11px; white-space: nowrap; }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePost, isPublished, resourcesSchema } from '../src/lib/content';
+import { parsePost, isPublished, resourcesSchema, downloadsSchema } from '../src/lib/content';
 import { renderMarkdown } from '../src/server/markdown';
 import { readPost, readPosts, clearPostsCache, HttpError, type Env } from '../src/server/r2';
 
@@ -29,6 +29,18 @@ test('resource links reject executable and non-web protocols', () => {
   assert.throws(() => resourcesSchema.parse({ items: [{ ...resource, url: 'javascript:alert(1)' }] }));
   assert.throws(() => resourcesSchema.parse({ items: [{ ...resource, url: 'file:///etc/passwd' }] }));
   assert.equal(resourcesSchema.parse({ items: [{ ...resource, url: 'https://example.com/' }] }).items.length, 1);
+});
+
+test('download items require exactly one of a local file or an external link', () => {
+  const base = { title: '测试', description: '说明', category: '分类', tags: [] };
+  assert.equal(downloadsSchema.parse({ items: [{ ...base, file: 'downloads/tool.zip' }] }).items.length, 1);
+  assert.equal(downloadsSchema.parse({ items: [{ ...base, url: 'https://example.com/tool.zip' }] }).items.length, 1);
+  // Neither or both targets are rejected.
+  assert.throws(() => downloadsSchema.parse({ items: [{ ...base }] }));
+  assert.throws(() => downloadsSchema.parse({ items: [{ ...base, file: 'downloads/tool.zip', url: 'https://example.com/tool.zip' }] }));
+  // A file must stay under assets/ or downloads/; a url must be web-only.
+  assert.throws(() => downloadsSchema.parse({ items: [{ ...base, file: '../secret.zip' }] }));
+  assert.throws(() => downloadsSchema.parse({ items: [{ ...base, url: 'javascript:alert(1)' }] }));
 });
 
 test('Markdown strips active HTML and unsafe URLs while retaining code, GFM and unique TOC anchors', async () => {

@@ -55,7 +55,7 @@ export async function prepareContent() {
   const downloadsDir = resolve(contentRoot, 'downloads');
   if (await stat(downloadsDir).then(() => true).catch(() => false)) await assets(downloadsDir);
   const downloads = downloadsSchema.parse(JSON.parse(await readFile(resolve(contentRoot, 'downloads/index.json'), 'utf8')));
-  for (const item of downloads.items) if (!objects.has(item.file)) throw new Error(`下载文件不存在：${item.file}`);
+  for (const item of downloads.items) if (item.file && !objects.has(item.file)) throw new Error(`下载文件不存在：${item.file}`);
   objects.set('downloads/index.json', JSON.stringify(downloads));
   const resume = resumeSchema.parse(JSON.parse(String(objects.get('resume/resume.json'))));
   if (resume.pdf) {

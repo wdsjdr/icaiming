@@ -27,7 +27,13 @@ export const resourcesSchema = z.object({ items: z.array(z.object({
 const downloadPath = z.string().regex(/^(?:assets|downloads)\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/, '下载文件路径不合法');
 export const downloadsSchema = z.object({ items: z.array(z.object({
   title: z.string().min(1), description: z.string().min(1), category: z.string().min(1),
-  file: downloadPath, size: z.string().optional(), updated: date.optional(), tags: z.array(z.string()).default([]),
+  file: downloadPath.optional(), url: webLink.optional(),
+  size: z.string().optional(), updated: date.optional(), tags: z.array(z.string()).default([]),
+}).superRefine((item, ctx) => {
+  // Exactly one target: a file hosted on this site, or an external download link.
+  if (Boolean(item.file) === Boolean(item.url)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['file'], message: '需恰好填写本地文件（assets/ 或 downloads/）或外部链接其中之一' });
+  }
 })) });
 export const rankingsSchema = z.object({
   updatedAt: z.string().nullable().default(null),

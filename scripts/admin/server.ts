@@ -5,11 +5,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
-import { EnvHttpProxyAgent, setGlobalDispatcher } from 'undici';
+import { Agent, EnvHttpProxyAgent, setGlobalDispatcher } from 'undici';
 import { compareContent, prepareContent, publishContent } from '../content';
 import { renderMarkdown } from '../../src/server/markdown';
 import * as store from './lib';
 import * as aggregator from './aggregator';
+import { isConnectionError, probeTcp, proxyEndpoint } from './net';
 
 // Node's fetch ignores the Windows system proxy. The admin server's own outbound requests use the proxy
 // from HTTPS_PROXY/HTTP_PROXY in the environment, or from HTTPS_PROXY in icaiming/.env (read at startup;
@@ -31,14 +32,54 @@ try {
   process.exit(1);
 }
 const proxyDisplay = outboundProxy ? aggregator.maskProxy(outboundProxy.url) : null;
+// The proxy applies only to the admin server's own fetch. It is passed to the dispatcher explicitly
+// instead of process.env so spawned children (wrangler deploy / secret put) never inherit it:
+// a stale or stopped proxy cannot break a deploy.
+const directDispatcher = new Agent();
+const proxyDispatcher = outboundProxy
+  ? new EnvHttpProxyAgent({ httpProxy: outboundProxy.url, httpsProxy: outboundProxy.url, noProxy: '127.0.0.1,localhost,::1' })
+  : null;
+let outboundMode: 'proxy' | 'direct' = 'direct';
+function setOutboundMode(mode: 'proxy' | 'direct') {
+  outboundMode = mode;
+  setGlobalDispatcher(mode === 'proxy' && proxyDispatcher ? proxyDispatcher : directDispatcher);
+}
+async function proxyReachable(): Promise<boolean> {
+  if (!outboundProxy) return false;
+  try {
+    const { host, port } = proxyEndpoint(outboundProxy.url);
+    return await probeTcp(host, port, 400);
+  } catch {
+    return false;
+  }
+}
 if (outboundProxy) {
-  // The .env proxy applies only to the admin server's own fetch (aggregator calls, S3 publish).
-  // It is passed to the dispatcher explicitly instead of process.env so spawned children
-  // (wrangler deploy / secret put) never inherit it: a stale or stopped proxy cannot break a deploy.
-  setGlobalDispatcher(new EnvHttpProxyAgent({ httpProxy: outboundProxy.url, httpsProxy: outboundProxy.url, noProxy: '127.0.0.1,localhost,::1' }));
-  console.log(`[admin] 管理页出站代理：${proxyDisplay}（来源：${outboundProxy.source}）；部署子进程不继承，仅跟随系统 HTTPS_PROXY`);
+  // Probe the proxy once at startup: a stopped proxy must not hijack every request (fetch failed).
+  if (await proxyReachable()) {
+    setOutboundMode('proxy');
+    console.log(`[admin] 管理页出站代理：${proxyDisplay}（来源：${outboundProxy.source}）；部署子进程不继承，仅跟随系统 HTTPS_PROXY`);
+  } else {
+    setOutboundMode('direct');
+    console.log(`[admin] 代理 ${proxyDisplay} 当前不可达，先直连 Cloudflare；若直连失败会自动改用代理重试`);
+  }
 } else {
+  setOutboundMode('direct');
   console.log('[admin] 未配置出站代理，管理页直连 Cloudflare（如不通，请在 icaiming/.env 设置 HTTPS_PROXY）');
+}
+
+// Runs an outbound job, retrying once through the other path (proxy ↔ direct) on a connection
+// error, so the admin keeps working whether or not the local proxy is running.
+async function withOutboundFallback<T>(job: () => Promise<T>): Promise<T> {
+  try {
+    return await job();
+  } catch (error) {
+    if (!isConnectionError(error) || !outboundProxy) throw error;
+    const next: 'proxy' | 'direct' = outboundMode === 'proxy' ? 'direct' : 'proxy';
+    if (next === 'proxy' && !(await proxyReachable())) throw error;
+    setOutboundMode(next);
+    console.log(`[admin] 出站连接失败，改用${next === 'proxy' ? `代理 ${proxyDisplay}` : '直连'}重试`);
+    return await job();
+  }
 }
 
 const icaimingRoot = fileURLToPath(new URL('../../', import.meta.url));
@@ -215,7 +256,7 @@ async function buildState() {
   return {
     contentRoot, siteOrigin, siteRunning, credentials,
     cloudflare: { apiToken: Boolean(cloudflareApiToken) },
-    aggregator: { url: aggregatorBaseUrl, runToken: Boolean(aggregatorRunToken), proxy: proxyDisplay },
+    aggregator: { url: aggregatorBaseUrl, runToken: Boolean(aggregatorRunToken), proxy: proxyDisplay, network: outboundMode },
     collections: collectionStates,
     counts: {
       posts: posts.length,
@@ -279,13 +320,13 @@ async function handle(req: IncomingMessage, res: ServerResponse, url: URL): Prom
 
   if (path === '/api/publish' && method === 'POST') {
     // refreshEnv: use the on-disk credentials, not a value the running admin cached earlier.
-    const result = await runCaptured(() => publishContent({ refreshEnv: true }));
+    const result = await runCaptured(() => withOutboundFallback(() => publishContent({ refreshEnv: true })));
     sendJson(res, 200, { ok: result.ok, logs: result.logs, error: result.error, summary: result.value ?? null });
     return true;
   }
 
   if (path === '/api/compare' && method === 'POST') {
-    const result = await runCaptured(() => compareContent({ refreshEnv: true }));
+    const result = await runCaptured(() => withOutboundFallback(() => compareContent({ refreshEnv: true })));
     sendJson(res, 200, { ok: result.ok, compare: result.value ?? null, logs: result.logs, error: result.error });
     return true;
   }
@@ -347,7 +388,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, url: URL): Prom
     const body = await readJsonBody(req);
     const value = store.normalizeRunToken(body.value);
     // Token check without a task: the Worker answers 400 for a valid token and runs nothing.
-    const check = await aggregator.callAggregator({ base: aggregatorBaseUrl, token: value, timeoutMs: aggregator.VERIFY_TIMEOUT_MS })
+    const check = await withOutboundFallback(() => aggregator.callAggregator({ base: aggregatorBaseUrl, token: value, timeoutMs: aggregator.VERIFY_TIMEOUT_MS }))
       .then((response) => aggregator.describeVerifyStatus(response.status))
       .catch((error) => aggregator.describeNetworkError(error, proxyDisplay));
     if (check !== null) {
@@ -370,9 +411,9 @@ async function handle(req: IncomingMessage, res: ServerResponse, url: URL): Prom
     const task = body.task;
     console.log(`[admin] 手动执行聚合任务 ${task}`);
     try {
-      const response = await aggregator.callAggregator({
+      const response = await withOutboundFallback(() => aggregator.callAggregator({
         base: aggregatorBaseUrl, token: aggregatorRunToken, task, timeoutMs: aggregator.RUN_TIMEOUT_MS,
-      });
+      }));
       const message = aggregator.describeRunStatus(response.status);
       if (message !== null) {
         console.log(`[admin] 聚合任务 ${task} 未执行：${message}`);

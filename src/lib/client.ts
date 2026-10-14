@@ -120,7 +120,9 @@ async function downloads() {
     const data = await fetchData<Downloads>('downloads');
     if (!data.items.length) { target.replaceChildren(empty('下载资源正在整理。')); return; }
     target.replaceChildren(...data.items.map((item) => {
-      const card = link(`/media/${item.file}?download=1`, '', 'download-card');
+      const external = Boolean(item.url);
+      const card = link(external ? (item.url as string) : `/media/${item.file}?download=1`, '', 'download-card');
+      if (external) { card.target = '_blank'; card.rel = 'noopener noreferrer'; }
       card.append(node('span', item.category.toUpperCase(), 'eyebrow'), node('h3', item.title), node('p', item.description), tags(item.tags));
       const meta = [item.size, item.updated?.replaceAll('-', '.')].filter(Boolean).join(' · ');
       if (meta) card.append(node('span', meta, 'download-meta'));
