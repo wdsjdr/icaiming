@@ -1,7 +1,7 @@
 // Pure helpers for the admin page's manual aggregator actions. No filesystem or global state here,
 // so the behaviour can be unit-tested without starting the admin server.
 
-export const AGGREGATOR_TASKS = ['rankings', 'hotboard', 'daily-news', 'epic', 'saying', 'steam-deals'] as const;
+export const AGGREGATOR_TASKS = ['rankings', 'hotboard', 'daily-news', 'epic', 'saying'] as const;
 export type AggregatorTask = (typeof AGGREGATOR_TASKS)[number];
 
 export const DEFAULT_AGGREGATOR_URL = 'https://ic-aiming-aggregator.3043927908.workers.dev';

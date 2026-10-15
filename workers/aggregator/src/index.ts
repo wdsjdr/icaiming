@@ -1,4 +1,4 @@
-import { runRankings, runHotboard, runEpic, runSteamDeals, runSaying, runDailyNews } from './tasks';
+import { runRankings, runHotboard, runEpic, runSaying, runDailyNews } from './tasks';
 import type { Env, TaskResult } from './types';
 
 export type Task = (env: Env) => Promise<TaskResult>;
@@ -7,7 +7,7 @@ export type Task = (env: Env) => Promise<TaskResult>;
 // (enforced by tests/aggregator-schedule.test.ts). Times are UTC.
 export const schedule = new Map<string, Task[]>([
   ['0 */6 * * *', [runRankings, runHotboard]],
-  ['0 1 * * *', [runDailyNews, runEpic, runSteamDeals]],
+  ['0 1 * * *', [runDailyNews, runEpic]],
   ['30 1 * * *', [runSaying]],
   ['0 5 * * *', [runDailyNews]], // daily-news compensation: skipped when today's image already exists
 ]);
@@ -19,7 +19,6 @@ export const tasksByName = new Map<string, Task>([
   ['daily-news', runDailyNews],
   ['epic', runEpic],
   ['saying', runSaying],
-  ['steam-deals', runSteamDeals],
 ]);
 
 async function run(tasks: Task[], env: Env): Promise<TaskResult[]> {

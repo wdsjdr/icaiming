@@ -51,10 +51,10 @@ test('wrangler.toml cron triggers match the schedule map exactly', () => {
 test('each cron runs the intended tasks and every task is reachable by name', () => {
   const names = (cron: string) => schedule.get(cron)!.map((task) => task.name);
   assert.deepEqual(names('0 */6 * * *'), ['runRankings', 'runHotboard']);
-  assert.deepEqual(names('0 1 * * *'), ['runDailyNews', 'runEpic', 'runSteamDeals']);
+  assert.deepEqual(names('0 1 * * *'), ['runDailyNews', 'runEpic']);
   assert.deepEqual(names('30 1 * * *'), ['runSaying']);
   assert.deepEqual(names('0 5 * * *'), ['runDailyNews']);
-  assert.deepEqual([...tasksByName.keys()].sort(), ['daily-news', 'epic', 'hotboard', 'rankings', 'saying', 'steam-deals']);
+  assert.deepEqual([...tasksByName.keys()].sort(), ['daily-news', 'epic', 'hotboard', 'rankings', 'saying']);
 });
 
 test('unknown cron expression runs nothing and touches no storage', async () => {
@@ -94,7 +94,7 @@ test('/run requires a task parameter and an allowed name', async () => {
   const env = makeEnv();
   const missing = await worker.fetch(runRequest('', { headers: bearer }), env);
   assert.equal(missing.status, 400);
-  assert.match(await missing.text(), /rankings, hotboard, daily-news, epic, saying, steam-deals/);
+  assert.match(await missing.text(), /rankings, hotboard, daily-news, epic, saying/);
   assert.equal((await worker.fetch(runRequest('?task=all', { headers: bearer }), env)).status, 400);
   assert.equal((await worker.fetch(runRequest('?task=constructor', { headers: bearer }), env)).status, 400);
   assert.equal((await worker.fetch(runRequest('?task=', { headers: bearer }), env)).status, 400);
