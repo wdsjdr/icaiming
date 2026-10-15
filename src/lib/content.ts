@@ -70,6 +70,25 @@ export const epicFreeSchema = z.object({
     freeStart: z.string().optional(), freeEnd: z.string().optional(), link: webLink,
   })).default([]),
 });
+export const steamDealSchema = z.object({
+  appid: z.number().int(),
+  nameEn: z.string().default(''), nameZh: z.string().default(''),
+  url: webLink, capsule: z.string().default(''), header: z.string().default(''),
+  original: z.number().min(0).default(0), final: z.number().min(0).default(0),
+  discount: z.number().int().min(0).max(100).default(0),
+  reviewText: z.string().default(''),
+  reviewPercent: z.number().int().min(0).max(100).nullable().default(null),
+  reviewCount: z.number().int().nonnegative().default(0),
+  rating: z.number().nullable().default(null),
+  isLow: z.boolean().default(false), isNewLow: z.boolean().default(false),
+  lowPrice: z.number().min(0).nullable().default(null),
+  endsAt: z.string().nullable().default(null),
+});
+export const steamDealsSchema = z.object({
+  updatedAt: z.string().nullable().default(null),
+  sourceUpdatedAt: z.string().nullable().default(null),
+  items: z.array(steamDealSchema).default([]),
+});
 export const sayingSchema = z.object({
   updatedAt: z.string().nullable().default(null),
   items: z.array(z.string().min(1)).default([]),
@@ -95,6 +114,8 @@ export type Rankings = z.infer<typeof rankingsSchema>;
 export type HotboardIndex = z.infer<typeof hotboardIndexSchema>;
 export type Hotboard = z.infer<typeof hotboardSchema>;
 export type EpicFree = z.infer<typeof epicFreeSchema>;
+export type SteamDeal = z.infer<typeof steamDealSchema>;
+export type SteamDeals = z.infer<typeof steamDealsSchema>;
 export type Saying = z.infer<typeof sayingSchema>;
 export type Answerbook = z.infer<typeof answerbookSchema>;
 export type DailyNews = z.infer<typeof dailyNewsSchema>;

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePost, isPublished, resourcesSchema, downloadsSchema } from '../src/lib/content';
+import { parsePost, isPublished, resourcesSchema, downloadsSchema, steamDealsSchema } from '../src/lib/content';
 import { renderMarkdown } from '../src/server/markdown';
 import { readPost, readPosts, clearPostsCache, HttpError, type Env } from '../src/server/r2';
 
@@ -95,4 +95,23 @@ test('direct article reads go to R2 and enforce slug format and the body draft f
   await assert.rejects(() => readPost(env, 'draft-post'), isNotFound);
   await assert.rejects(() => readPost(env, 'missing'), isNotFound);
   await assert.rejects(() => readPost(env, '../secret'), isNotFound);
+});
+
+test('steam deals accept a full payload and default every missing field', () => {
+  const full = { updatedAt: '2026-10-16T00:00:00Z', sourceUpdatedAt: null, items: [{
+    appid: 570, nameEn: 'Dota 2', nameZh: '刀塔', url: 'https://store.steampowered.com/app/570/',
+    capsule: 'https://cdn/a.jpg', header: 'https://cdn/b.jpg', original: 100, final: 0, discount: 100,
+    reviewText: '好评如潮', reviewPercent: 96, reviewCount: 200, rating: 9.1, isLow: true, isNewLow: false,
+    lowPrice: 0, endsAt: '2026-10-20T00:00:00Z',
+  }] };
+  assert.equal(steamDealsSchema.parse(full).items[0].appid, 570);
+  assert.deepEqual(steamDealsSchema.parse({}), { updatedAt: null, sourceUpdatedAt: null, items: [] });
+});
+
+test('steam deals reject out-of-range discount, negative price, missing appid and unsafe url', () => {
+  const item = { appid: 1, url: 'https://store.steampowered.com/app/1/', final: 10, discount: 50 };
+  assert.throws(() => steamDealsSchema.parse({ items: [{ ...item, discount: 101 }] }));
+  assert.throws(() => steamDealsSchema.parse({ items: [{ ...item, final: -1 }] }));
+  assert.throws(() => steamDealsSchema.parse({ items: [{ ...item, appid: undefined }] }));
+  assert.throws(() => steamDealsSchema.parse({ items: [{ ...item, url: 'javascript:alert(1)' }] }));
 });

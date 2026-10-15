@@ -1,4 +1,4 @@
-import type { Post, Profile, Home, Projects, Resources, Downloads, Rankings, HotboardIndex, Hotboard, EpicFree, Saying, Answerbook, DailyNews, Resume } from './content';
+import type { Post, Profile, Home, Projects, Resources, Downloads, Rankings, HotboardIndex, Hotboard, EpicFree, SteamDeals, Saying, Answerbook, DailyNews, Resume } from './content';
 
 const requests = new Map<string, Promise<unknown>>();
 function fetchData<T>(name: string): Promise<T> {
@@ -204,6 +204,86 @@ async function epicFree() {
     }));
   } catch { recover(target, epicFree); }
 }
+function steamPrice(value: number) { return value === 0 ? '免费' : `¥${Number.isInteger(value) ? value : value.toFixed(2)}`; }
+const STEAM_PAGE = 48;
+async function steamDeals() {
+  const target = document.querySelector<HTMLElement>('[data-steam-deals]'); if (!target) return;
+  const meta = document.querySelector<HTMLElement>('[data-steam-meta]');
+  try {
+    const data = await fetchOptional<SteamDeals>('steam-deals');
+    if (meta) { const stamp = data?.sourceUpdatedAt || data?.updatedAt;
+      meta.textContent = [data?.items.length ? `共 ${data.items.length} 款` : '', stamp ? `更新于 ${formatTime(stamp)}` : ''].filter(Boolean).join(' · '); }
+    if (!data || !data.items.length) { target.replaceChildren(empty('暂时没有折扣数据，等下一次同步。')); return; }
+    const query = node('input', '', 'deal-search') as HTMLInputElement;
+    query.type = 'search'; query.placeholder = '搜索游戏名'; query.setAttribute('aria-label', '搜索游戏名');
+    const sort = node('select', '', 'deal-sort') as HTMLSelectElement; sort.setAttribute('aria-label', '排序');
+    for (const [value, label] of [['discount', '折扣优先'], ['price', '价格最低'], ['hot', '最热门']] as const) {
+      const option = node('option', label) as HTMLOptionElement; option.value = value; sort.append(option);
+    }
+    const toolbar = node('div', '', 'deal-toolbar'); toolbar.append(query, sort);
+    const chips = node('div', '', 'deal-chips');
+    const grid = node('div', '', 'deal-grid');
+    const summary = node('p', '', 'deal-summary');
+    const filters = [['all', '全部'], ['low', '史低'], ['newlow', '新史低'], ['free', '免费'], ['d70', '≥70%'], ['d90', '≥90%']] as const;
+    let filter = 'all'; let q = ''; let page = 1;
+    const match = (item: SteamDeals['items'][number]) => {
+      if (filter === 'low' && !item.isLow) return false;
+      if (filter === 'newlow' && !item.isNewLow) return false;
+      if (filter === 'free' && item.final !== 0) return false;
+      if (filter === 'd70' && item.discount < 70) return false;
+      if (filter === 'd90' && item.discount < 90) return false;
+      return !q || `${item.nameEn} ${item.nameZh}`.toLocaleLowerCase().includes(q);
+    };
+    const card = (item: SteamDeals['items'][number]) => {
+      const element = link(item.url, '', 'deal-card');
+      const cover = item.header || item.capsule;
+      if (cover) {
+        const image = node('img', '', 'deal-cover'); image.src = cover; image.alt = ''; image.loading = 'lazy';
+        image.addEventListener('error', () => { image.style.display = 'none'; }); element.append(image);
+      }
+      element.append(node('span', item.final === 0 ? '免费' : `-${item.discount}%`, 'deal-badge'), node('h3', item.nameZh || item.nameEn, 'deal-title'));
+      const price = node('div', '', 'deal-price'); price.append(node('span', steamPrice(item.final), 'deal-final'));
+      if (item.original > item.final) price.append(node('del', `¥${Number.isInteger(item.original) ? item.original : item.original.toFixed(2)}`, 'deal-del'));
+      element.append(price);
+      const tags = node('div', '', 'deal-tags');
+      if (item.isNewLow) tags.append(node('span', '新史低', 'deal-tag')); else if (item.isLow) tags.append(node('span', '史低', 'deal-tag'));
+      if (item.endsAt) {
+        const end = Date.parse(item.endsAt);
+        if (!Number.isNaN(end)) tags.append(node('span', `剩余 ${Math.max(0, Math.ceil((end - Date.now()) / 86400000))} 天`, 'deal-tag'));
+      }
+      if (tags.childElementCount) element.append(tags);
+      const reviews: string[] = [];
+      if (item.reviewPercent !== null) reviews.push(`好评率 ${item.reviewPercent}%`);
+      if (item.reviewCount > 0) reviews.push(`${item.reviewCount} 人评测`);
+      if (reviews.length) element.append(node('span', reviews.join(' · '), 'deal-review'));
+      return element;
+    };
+    const render = () => {
+      const filtered = data.items.filter(match).sort((a, b) => {
+        if (sort.value === 'price') return a.final - b.final || b.discount - a.discount;
+        if (sort.value === 'hot') return b.reviewCount - a.reviewCount;
+        return b.discount - a.discount || b.reviewCount - a.reviewCount;
+      });
+      const visible = filtered.slice(0, page * STEAM_PAGE);
+      const shown: HTMLElement[] = visible.map(card);
+      if (!shown.length) shown.push(empty('没有符合条件的折扣。'));
+      grid.replaceChildren(...shown);
+      if (filtered.length > visible.length) {
+        const more = node('button', `加载更多 · 还有 ${filtered.length - visible.length} 款`, 'deal-more') as HTMLButtonElement;
+        more.type = 'button'; more.addEventListener('click', () => { page += 1; render(); }); grid.append(more);
+      }
+      chips.replaceChildren(...filters.map(([value, label]) => {
+        const chip = node('button', label, 'deal-chip') as HTMLButtonElement;
+        chip.type = 'button'; chip.setAttribute('aria-pressed', String(value === filter));
+        chip.addEventListener('click', () => { filter = value; page = 1; render(); }); return chip;
+      }));
+      summary.textContent = `共 ${filtered.length} 款`;
+    };
+    query.addEventListener('input', () => { q = query.value.trim().toLocaleLowerCase(); page = 1; render(); });
+    sort.addEventListener('change', () => { page = 1; render(); });
+    target.replaceChildren(toolbar, chips, grid, summary); render();
+  } catch { recover(target, steamDeals); }
+}
 const HOTBOARD_PREVIEW = 10;
 async function hotboard() {
   const target = document.querySelector('[data-hotboard]'); if (!target) return;
@@ -400,7 +480,7 @@ async function resume() {
   } catch { recover(target, resume); }
 }
 document.querySelector('[data-print]')?.addEventListener('click', () => window.print());
-void Promise.allSettled([profile(), home(), latest(), projects(), blog(), epicFree(), saying(), dailyNews(), resume()]);
+void Promise.allSettled([profile(), home(), latest(), projects(), blog(), epicFree(), steamDeals(), saying(), dailyNews(), resume()]);
 answerbook();
 resourceTabs();
 

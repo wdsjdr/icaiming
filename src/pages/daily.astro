@@ -18,6 +18,10 @@ import PageLayout from '../layouts/PageLayout.astro';
     <div class="section-label"><h2>限时免费<span class="small-en">FREE NOW</span></h2><span class="mono muted">EPIC / WEEKLY</span></div>
     <div data-epic-free class="epic-grid" aria-live="polite"><p class="loading">正在读取免费游戏…</p></div>
   </section>
+  <section class="daily-deals">
+    <div class="section-label"><h2>游戏特惠<span class="small-en">STEAM DEALS</span></h2><span class="mono muted" data-steam-meta></span></div>
+    <div data-steam-deals aria-live="polite"><p class="loading">正在读取折扣…</p></div>
+  </section>
 </PageLayout>
 <style>
   .daily { display: grid; grid-template-columns: 1.35fr 1fr; gap: 44px; align-items: start; }
@@ -51,6 +55,27 @@ import PageLayout from '../layouts/PageLayout.astro';
   .epic-grid :global(.epic-price) { color: var(--muted); text-decoration: line-through; }
   .epic-grid :global(.epic-timer) { color: var(--accent); }
   .epic-grid :global(.epic-desc) { color: var(--muted); font-size: 12px; line-height: 1.7; margin: 0; flex: 1; }
-  @media(max-width: 900px) { .daily { grid-template-columns: 1fr; gap: 28px; }.daily-viewer { order: 2; }.daily-calendar { order: 1; }.epic-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media(max-width: 600px) { .epic-grid { grid-template-columns: 1fr; }.small-en { display: none; } }
+  .daily-deals { margin-top: 64px; padding-top: 44px; border-top: 1px solid var(--line); }
+  .daily-deals :global(.deal-toolbar) { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .daily-deals :global(.deal-search) { flex: 1; min-width: 200px; padding: 9px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; }
+  .daily-deals :global(.deal-sort) { padding: 9px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; }
+  .daily-deals :global(.deal-chips) { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+  .daily-deals :global(.deal-chip) { padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); font: 12px var(--font-mono); cursor: pointer; }
+  .daily-deals :global(.deal-chip[aria-pressed="true"]) { border-color: var(--accent); color: var(--accent); }
+  .daily-deals :global(.deal-grid) { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .daily-deals :global(.deal-card) { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--surface); transition: transform .2s; }
+  .daily-deals :global(.deal-card:hover) { transform: translateY(-4px); border-color: var(--accent); }
+  .daily-deals :global(.deal-cover) { width: 100%; aspect-ratio: 460 / 215; object-fit: cover; display: block; background: var(--soft); }
+  .daily-deals :global(.deal-badge) { align-self: flex-start; margin: 12px 14px 0; padding: 2px 8px; border-radius: var(--radius); background: var(--accent); color: var(--button-ink); font: 11px var(--font-mono); }
+  .daily-deals :global(.deal-title) { margin: 10px 14px 0; font-size: 15px; font-weight: 550; }
+  .daily-deals :global(.deal-price) { display: flex; align-items: baseline; gap: 8px; margin: 8px 14px 0; }
+  .daily-deals :global(.deal-final) { color: var(--accent); font: 600 15px var(--font-mono); }
+  .daily-deals :global(.deal-del) { color: var(--muted); font: 11px var(--font-mono); }
+  .daily-deals :global(.deal-tags) { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 14px 14px; }
+  .daily-deals :global(.deal-tag) { padding: 2px 8px; border: 1px solid var(--line); border-radius: var(--radius); font: 10px var(--font-mono); color: var(--muted); }
+  .daily-deals :global(.deal-review) { margin: 10px 14px 14px; font-size: 11px; color: var(--muted); }
+  .daily-deals :global(.deal-more) { grid-column: 1 / -1; margin-top: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: transparent; color: var(--muted); font: 12px var(--font-mono); cursor: pointer; }
+  .daily-deals :global(.deal-summary) { margin: 16px 0 0; color: var(--muted); font: 11px var(--font-mono); }
+  @media(max-width: 900px) { .daily { grid-template-columns: 1fr; gap: 28px; }.daily-viewer { order: 2; }.daily-calendar { order: 1; }.epic-grid { grid-template-columns: repeat(2, 1fr); }.daily-deals :global(.deal-grid) { grid-template-columns: repeat(2, 1fr); } }
+  @media(max-width: 600px) { .epic-grid { grid-template-columns: 1fr; }.small-en { display: none; }.daily-deals :global(.deal-grid) { grid-template-columns: 1fr; } }
 </style>
