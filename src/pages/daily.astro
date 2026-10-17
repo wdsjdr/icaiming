@@ -4,7 +4,7 @@ import PageLayout from '../layouts/PageLayout.astro';
 <PageLayout title="每日新闻" eyebrow="05 / DAILY" english="Daily" description="一天一张新闻图。从今天开始归档，可以往前翻看近 12 个月。" section="daily">
   <section class="daily" data-daily>
     <div class="daily-viewer">
-      <div class="daily-viewer-head"><span class="eyebrow" data-daily-label>选择日期查看</span><a class="small-link" data-daily-link hidden>打开原图 ↗</a></div>
+      <div class="daily-viewer-head"><span class="eyebrow" data-daily-label>选择日期查看</span><span class="daily-head-links"><a class="small-link" href="https://uapis.cn" target="_blank" rel="noopener noreferrer">来源：UAPI ↗</a><a class="small-link" data-daily-link hidden>打开原图 ↗</a></span></div>
       <div class="daily-frame" data-daily-frame><p class="muted">归档从今天开始，日历会随每日抓取逐步填满。</p></div>
     </div>
     <div class="daily-calendar">
@@ -24,14 +24,18 @@ import PageLayout from '../layouts/PageLayout.astro';
   </section>
 </PageLayout>
 <style>
-  .daily { display: grid; grid-template-columns: 1.35fr 1fr; gap: 44px; align-items: start; }
-  .daily-viewer-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 30px; }
+  .daily { --daily-head: 44px; display: grid; grid-template-columns: 1.35fr 1fr; gap: 44px; align-items: start; }
+  .daily-viewer-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: var(--daily-head); }
+  .daily-head-links { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0 18px; }
   .daily-viewer-head .small-link[hidden] { display: none; }
   .daily-frame { margin-top: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--soft); min-height: 320px; max-height: min(72vh, 640px); overflow: auto; display: flex; flex-direction: column; align-items: center; padding: 14px; scrollbar-width: thin; }
   .daily-frame p { max-width: 320px; margin: auto; text-align: center; font-size: 13px; line-height: 1.9; }
   .daily-frame :global(.daily-image) { width: 100%; height: auto; flex: none; display: block; border-radius: calc(var(--radius) - 4px); }
-  .daily-calendar { border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+  .daily-calendar { margin-top: calc(var(--daily-head) + 16px); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
   .calendar-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .calendar-head .icon-button { width: 32px; height: 32px; min-height: 0; padding: 0; display: grid; place-items: center; border: 1px solid var(--line); border-radius: var(--radius); background: transparent; color: var(--muted); font-size: 15px; line-height: 1; transition: border-color .2s, color .2s; }
+  .calendar-head .icon-button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .calendar-head .icon-button:disabled { opacity: .35; cursor: default; }
   .calendar-title { font: 12px var(--font-mono); letter-spacing: .06em; }
   .calendar-week, .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
   .calendar-week { margin-bottom: 6px; }
@@ -76,6 +80,6 @@ import PageLayout from '../layouts/PageLayout.astro';
   .daily-deals :global(.deal-review) { margin: 10px 14px 14px; font-size: 11px; color: var(--muted); }
   .daily-deals :global(.deal-more) { grid-column: 1 / -1; margin-top: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: transparent; color: var(--muted); font: 12px var(--font-mono); cursor: pointer; }
   .daily-deals :global(.deal-summary) { margin: 16px 0 0; color: var(--muted); font: 11px var(--font-mono); }
-  @media(max-width: 900px) { .daily { grid-template-columns: 1fr; gap: 28px; }.daily-viewer { order: 2; }.daily-calendar { order: 1; }.epic-grid { grid-template-columns: repeat(2, 1fr); }.daily-deals :global(.deal-grid) { grid-template-columns: repeat(2, 1fr); } }
+  @media(max-width: 900px) { .daily { grid-template-columns: 1fr; gap: 28px; }.daily-viewer { order: 2; }.daily-calendar { order: 1; margin-top: 0; }.epic-grid { grid-template-columns: repeat(2, 1fr); }.daily-deals :global(.deal-grid) { grid-template-columns: repeat(2, 1fr); } }
   @media(max-width: 600px) { .epic-grid { grid-template-columns: 1fr; }.small-en { display: none; }.daily-deals :global(.deal-grid) { grid-template-columns: 1fr; } }
 </style>

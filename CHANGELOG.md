@@ -6,6 +6,7 @@
 
 ### 变更
 
+- `/daily` 布局修正：日历卡片顶部与左侧新闻图片卡片对齐（`--daily-head` 44px），月份切换按钮改为 32px 方块（此前 `.icon-button` 的作用域样式不作用于本页，按钮退化成竖条），并在页面头部补充「来源：UAPI ↗」外链。
 - 聚合 Worker 改为 4 条 Cron 触发器（`0 */6 * * *`、`0 1 * * *`、`30 1 * * *`、`0 5 * * *`），按表达式分派任务，未知表达式只记录日志；Epic 返回空列表时保留 R2 上一次结果。
 - 聚合 Worker `/run` 需 `Authorization: Bearer <RUN_TOKEN>`，未配置令牌返回 503、错误返回 401；必须指定 `?task=`（`rankings`、`hotboard`、`daily-news`、`epic`、`saying`），每次只执行一个任务。
 - 站点由 Cloudflare Pages 迁移为 Worker：`functions/` 的 12 个 Pages Function 合并为 `src/worker/index.ts` 路由加 `src/worker/handlers/`（api、blog、media、feeds），静态页面由 `[assets]` 绑定提供，`wrangler.toml` 的 `main`、`[assets]`、`[build]` 替代 `pages_build_output_dir`。
@@ -38,17 +39,17 @@
 - 发现页新增「资源下载」区块：内容仓库 `downloads/index.json` 清单 + 文件校验，`/media/<file>?download=1` 以附件下载。
 - 发现页新增「数据榜单」「热榜 · 前沿」「限时免费」区块：桌面表格 / 手机卡片双形态，标注来源与更新时间，空状态诚实展示；热榜支持平台 Tab 切换。
 - `/fun/answerbook` 答案之书实验：实时转发 UAPI（免费接口），失败给出提示；首页 status 行与页脚显示随机一言。
-- 聚合 Worker `workers/aggregator`：`Source` 适配器接口，抓取 GitHub Trending、UAPI 热榜 5 平台、Epic 限时免费、一言池，分别写入 `rankings/`、`misc/`，`0 */6 * * *` 与 `0 4 * * *` Cron，失败保留上次结果，按 4 QPS 限速。新增 `aggregator:dev` / `aggregator:deploy` 脚本。
+- 聚合 Worker `workers/aggregator`：`Source` 适配器接口，抓取 GitHub Trending、UAPI 热榜 5 平台、Epic 限时免费、一言池，分别写入 `rankings/`、`misc/`，失败保留上次结果，按 4 QPS 限速。新增 `aggregator:dev` / `aggregator:deploy` 脚本。
 - 榜单解析与 UAPI 映射的离线测试（`tests/rankings.test.ts`、`tests/uapi.test.ts`）。
 - 热榜按 `HOTBOARD_LIMIT` 截断（默认 50），发现页默认展示 10 条并支持展开/收起。
 - 一言池跨天合并去重（`SAYING_POOL` 上限）并对 429 退避重试；发现页新增页内锚点导航，更新时间格式化为北京时间。
-- 新增 `/daily` 每日新闻日历：聚合 Worker 每日 09:00（北京）抓 `daily/news-image` 存入 `misc/daily-news/<date>.jpg`，月历可回看近 12 个月，超 365 天自动清理；新增 `/api/daily-news` 与 `/daily-image/[date]` 路由（后者已加入 `_routes.json`）。
+- 新增 `/daily` 每日新闻日历：聚合 Worker 每日 09:00（北京）抓 `daily/news-image` 存入 `misc/daily-news/<date>.jpg`，月历可回看近 12 个月，超 365 天自动清理；新增 `/api/daily-news` 与 `/daily-image/[date]` 路由。
 - 发现页改为粘性分栏 Tab（精选收藏 / 资源下载 / 数据榜单 / 热榜 · 前沿），同一时间只显示一块，默认「热榜 · 前沿」，支持 `#hash` 深链与方向键切换；各面板首次激活才拉取数据；数据榜单默认展示 10 条并可展开。
 - 「限时免费」（Epic）从发现页移至 `/daily` 每日新闻下方。
-- Cron 触发器合并为 2 个（`0 */6 * * *`、`0 1 * * *`），在 5 个上限内并为后续数据源留出空间。
+- Cron 触发器最终为 4 条（`0 */6 * * *`、`0 1 * * *`、`30 1 * * *`、`0 5 * * *`），在免费计划 5 个上限内并为后续数据源留出空间。
 - 修正聚合数据归属：内容导入器不再上传或删除 `rankings/`、`misc/` 键（缺失时前端显示空状态），避免覆盖 Worker 写入的线上数据；GitHub Trending 抓取增加 12s 超时，避免单源卡住整批任务。
 - 内容发布到生产 R2：新增 `pnpm content:publish`（经 S3 API / `aws4fetch` 并行上传，按 `_local/manifest.json` 清理旧对象，不碰 `rankings/`、`misc/`）；无 S3 密钥时可回退用 `CLOUDFLARE_API_TOKEN` + wrangler。
-- **修正 R2 桶名**：`ic-aiming-content` → `icaiming-content`（Pages 与聚合 Worker 的 `wrangler.toml`、发布脚本默认值），此前命名不一致会导致生产读写与发布失败。
+- **修正 R2 桶名**：`ic-aiming-content` → `icaiming-content`（`icaiming/` 与聚合 Worker 的 `wrangler.toml`、发布脚本默认值），此前命名不一致会导致生产读写与发布失败。
 - 新增本地管理页 `pnpm admin`（127.0.0.1:4400，回环 + Host/Origin 校验 + 会话令牌）：文章编辑（含 Markdown 实时预览）、资源收藏/下载/项目/资料/简历表单、媒体库（上传、引用扫描、同名自动序号、ASCII 文件名）、回收站（`.trash/` 可恢复），以及等价 `content:check` / `content:publish` 的校验与发布按钮（二次确认、日志回显、凭据仅服务端读取）。写入全部落在内容仓库，本地 R2 仍由 `pnpm dev` 监听同步；`rankings/`、`misc/`、`posts/index.json` 不可写。
 - 发布导入器 `contentTypes` 补充 `.jpeg`、`.gif`、`.avif`、`.ico`、`.zip`、`.7z`、`.txt`，上传的常见文件类型不再以 octet-stream 提供。
 - 新增 `tests/admin.test.ts`（路径守卫、上传目标解析、原子写入、回收站、引用扫描等）。
@@ -58,11 +59,12 @@
 - 管理页条目编辑器交互修复：新增条目自动滚动定位并聚焦（高亮反馈）、必填与链接/日期格式的就地中文校验与错误定位高亮（服务端 zod 错误映射回对应条目）、未保存修改在切换页签/关闭页面前确认与保存按钮脏标记、移动按钮边界禁用、工具栏吸顶、下载条目内直接上传文件并自动填入路径与大小。
 - 法律文件页面：`/legal` 索引（文件卡片、要点速览）与 `/legal/terms`、`/legal/privacy`、`/legal/disclaimer`、`/legal/notices` 四个文档页，中英文逐条对照、以中文为准，条款可深链（`#article-n` / `#clause-n-m`）并可打印。文本源自工作区 `LEGAL.md` 草案，按实际功能修订：订阅与访问统计改为「暂未提供 / 上线前更新」，补充答案之书转发 UAPI、浏览器本地存储键、Epic 封面直连、GitHub/UAPI 数据源，爬虫条款与 `robots.txt` 对齐。数据位于 `src/lib/legal.ts`，新增 `tests/legal.test.ts`。
 - 页脚新增「法律与隐私」入口；`/sitemap.xml` 加入 5 个法律路由；`robots.txt` 的说明链接改指 `/legal/notices#article-2`；`/fun/answerbook` 表单下增加数据处理即时告知并链接隐私政策。
+- 新增 `/fun/milktea` 奶茶店模拟经营：从 Godot 版重制为网页实现（选主推、备基料、摇茶出杯，逐步扩成连锁），核心数据与逻辑拆为 `src/lib/milktea/{data,engine,logic,save}.ts`，新增 `tests/milktea.test.ts`。
 
 ### 变更
 
 - `/fun/focus` 聚焦练习由手动轨道控件改为限时 60 秒点小球：小球随时间变小、存活变短；统计命中、命中率、平均与最快反应；最佳成绩存入 `localStorage`（`focus-best`），按命中数、同分看平均反应。游戏逻辑拆为纯函数模块 `src/lib/focus-drill.ts`，并新增 `tests/focus-drill.test.ts`。
-- `/fun` 页头采用 `PageLayout` 的 `heroHead` 变体：英文 `Play` 作大标题、「玩点不一样的」作强调色副标题，与首页 Hero 排版一致；生命游戏画布铺满整个页头区域并向外略微扩展，边缘羽化，不透明度由 0.34 提高到 0.5，格子大小不变。
+- `/fun` 页头：英文 `Play` 作大标题、「玩点不一样的」作强调色副标题，与首页 Hero 排版一致；生命游戏画布铺满整个页头区域并向外略微扩展，边缘羽化，不透明度由 0.34 提高到 0.5，格子大小不变。
 - `/fun/answerbook` 答案之书改为上下结构：全宽书页卡片，页眉细分隔线，答案使用显式宋体字体栈，按钮文字与箭头间距恢复正常，状态行为空时不占位。
 - 滚动虚化强度增强：模糊上限由 6px 提高到 12px，过渡带加宽到 18%（全站共用，首页同样生效）。
 
@@ -104,8 +106,8 @@
 ### 说明
 
 - 简历经历、教育与 PDF 待个人资料补充，页面显示对应空状态。
-- 两篇初始文章为示例内容，资源列表为建站相关的初始收藏。
-- 正式部署（Cloudflare Pages、R2 桶、资源域名）安排在本地验收确认之后。
+- 初始文章（`a-small-garden.md`）为示例内容，资源列表为建站相关的初始收藏。
+- 正式部署（站点 Worker、R2 桶、资源域名）安排在本地验收确认之后。
 
 [未发布]: https://github.com/wdsjdr/icaiming/compare/v0.2.0...HEAD
 [0.2.0]: https://github.com/wdsjdr/icaiming/releases/tag/v0.2.0
