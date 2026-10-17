@@ -147,7 +147,10 @@ function rankingRow(item: Rankings['items'][number]) {
   row.append(main);
   const score = node('div', '', 'ranking-score');
   const bar = node('span', '', 'ranking-bar'); bar.style.width = `${Math.round(item.score * 100)}%`;
-  score.append(bar, node('span', item.score.toFixed(2), 'ranking-value'));
+  const stars = typeof item.raw === 'number' && item.raw > 0 ? `+${item.raw.toLocaleString('en-US')}` : '—';
+  const value = node('span', stars, 'ranking-value');
+  if (typeof item.raw === 'number' && item.raw > 0) value.title = 'GitHub Trending 今日新增 star 数';
+  score.append(bar, value);
   row.append(score); return row;
 }
 const RANKING_PREVIEW = 10;
@@ -156,13 +159,15 @@ async function rankings() {
   const stamp = document.querySelector('[data-rankings-updated]');
   try {
     const data = await fetchOptional<Rankings>('rankings');
-    if (stamp) stamp.textContent = data?.updatedAt ? `更新于 ${formatTime(data.updatedAt)}` : '尚未更新';
+    if (stamp) stamp.textContent = data?.updatedAt ? `来源 GitHub · 更新于 ${formatTime(data.updatedAt)}` : '尚未更新';
     if (!data || !data.items.length) { target.replaceChildren(empty('榜单数据尚未更新，等待下一次抓取。')); return; }
     let expanded = false;
     const render = () => {
       const visible = expanded ? data.items : data.items.slice(0, RANKING_PREVIEW);
       const list = node('ol', '', 'ranking-list'); list.append(...visible.map(rankingRow));
-      target.replaceChildren(list);
+      const head = node('div', '', 'ranking-head');
+      head.append(node('span', '排名'), node('span', '项目'), node('span', '今日新增 Stars'));
+      target.replaceChildren(head, list);
       if (data.items.length > RANKING_PREVIEW) {
         const toggle = node('button', expanded ? '收起 ▴' : `展开全部 ${data.items.length} 条 ▾`, 'ranking-more');
         toggle.addEventListener('click', () => { expanded = !expanded; render(); });
@@ -318,7 +323,7 @@ async function hotboard() {
       try {
         let data = cache.get(type);
         if (!data) { const fetched = await fetchOptional<Hotboard>(`hotboard?type=${type}`); if (!fetched) { if (meta) meta.textContent = ''; target.replaceChildren(empty('这个平台暂时没有数据。')); return; } data = fetched; cache.set(type, data); }
-        if (meta) meta.textContent = data.updateAt ? `更新于 ${formatTime(data.updateAt)}` : '';
+        if (meta) meta.textContent = data.updateAt ? `来源 UAPI · 更新于 ${formatTime(data.updateAt)}` : '';
         render(data);
       } catch { recover(target, () => show(type)); }
     };
