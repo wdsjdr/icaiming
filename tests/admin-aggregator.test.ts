@@ -8,8 +8,8 @@ import {
 } from '../scripts/admin/aggregator';
 import { contentRoot, prepareContent } from '../scripts/content';
 
-test('only the five manual tasks are accepted', () => {
-  assert.deepEqual([...AGGREGATOR_TASKS], ['rankings', 'hotboard', 'daily-news', 'epic', 'saying']);
+test('only the six manual tasks are accepted', () => {
+  assert.deepEqual([...AGGREGATOR_TASKS], ['rankings', 'hotboard', 'daily-news', 'epic', 'saying', 'aa-models']);
   for (const task of AGGREGATOR_TASKS) assert.equal(isAggregatorTask(task), true);
   for (const bad of ['all', '', 'epic ', 'EPIC', 'constructor', '__proto__', undefined, null, 1, ['epic']]) {
     assert.equal(isAggregatorTask(bad), false, String(bad));

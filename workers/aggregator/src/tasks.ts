@@ -5,6 +5,7 @@ import { jsonMeta, readExisting, sleep } from './http';
 import { githubTrending } from './sources/github';
 import { fetchHotboard, parsePlatforms, type HotboardFile } from './sources/hotboard';
 import { fetchEpic } from './sources/epic';
+import { fetchAaModels } from './sources/aa';
 import { fetchSayings, mergePool } from './sources/saying';
 import { fetchDailyNewsImage } from './sources/daily-news';
 import type { Env, Source, SourcedItem, TaskResult } from './types';
@@ -58,6 +59,24 @@ export async function runEpic(env: Env): Promise<TaskResult> {
   const file = { updatedAt: new Date().toISOString(), items };
   await env.CONTENT_BUCKET.put('misc/epic-free.json', JSON.stringify(file, null, 2), { httpMetadata: jsonMeta });
   return { task: 'epic', ok: items.length, failed: 0 };
+}
+
+export async function runAaModels(env: Env): Promise<TaskResult> {
+  if (!env.AA_API_KEY) {
+    console.warn('[aa-models] AA_API_KEY 未配置，跳过');
+    return { task: 'aa-models', ok: 0, failed: 0, skipped: true };
+  }
+  const { items, stats } = await fetchAaModels(env);
+  // Like Epic: an empty board is a bad response, keep the last good file.
+  if (!items.length) return { task: 'aa-models', ok: 0, failed: 0, skipped: true };
+  const file = {
+    updatedAt: new Date().toISOString(),
+    source: { name: 'Artificial Analysis', url: 'https://artificialanalysis.ai', tier: 'free' },
+    stats,
+    items,
+  };
+  await env.CONTENT_BUCKET.put('misc/aa-models.json', JSON.stringify(file, null, 2), { httpMetadata: jsonMeta });
+  return { task: 'aa-models', ok: items.length, failed: 0 };
 }
 
 // The newest archived dates strictly before `before`, used to spot an upstream response that has not

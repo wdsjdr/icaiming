@@ -7,14 +7,16 @@ import PageLayout from '../layouts/PageLayout.astro';
     <button type="button" role="tab" id="tab-downloads" data-panel="downloads" aria-controls="downloads" aria-selected="false" tabindex="-1">资源下载</button>
     <button type="button" role="tab" id="tab-rankings" data-panel="rankings" aria-controls="rankings" aria-selected="false" tabindex="-1">GitHub 趋势</button>
     <button type="button" role="tab" id="tab-trending" data-panel="trending" aria-controls="trending" aria-selected="true" tabindex="0">平台热榜</button>
+    <button type="button" role="tab" id="tab-models" data-panel="models" aria-controls="models" aria-selected="false" tabindex="-1">模型榜</button>
   </div>
   <div class="resource-panels" data-resource-panels>
   <section id="curated" class="resource-block" role="tabpanel" data-panel="curated" aria-labelledby="tab-curated" data-resources hidden><div class="section-label"><h2>精选收藏<span class="small-en">CURATED LINKS</span></h2><span class="mono muted">TOOLS / DOCS</span></div><p class="panel-lead">手动整理的收藏，按分类、标签或关键词检索。</p><div class="search-row"><div class="filters" data-resource-filters aria-label="按资源分类筛选"></div><label class="search-field"><span class="eyebrow">检索收藏</span><input type="search" data-resource-search placeholder="工具名称、用途或标签…" aria-label="搜索资源" /></label></div><p data-resource-count class="eyebrow" aria-live="polite"></p><div data-resource-list class="resource-grid" aria-live="polite"><p class="loading">正在整理收藏…</p></div></section>
   <section id="downloads" class="resource-block" role="tabpanel" data-panel="downloads" aria-labelledby="tab-downloads" hidden><div class="section-label"><h2>资源下载<span class="small-en">DOWNLOADS</span></h2><span class="mono muted">FILES / ASSETS</span></div><p class="panel-lead">手动维护的下载资源，包含本机文件与外部链接。</p><div data-download-list class="download-grid" aria-live="polite"><p class="loading">正在读取下载项…</p></div></section>
   <section id="rankings" class="resource-block" role="tabpanel" data-panel="rankings" aria-labelledby="tab-rankings" hidden><div class="section-label"><h2>GitHub 趋势<span class="small-en">GITHUB TRENDING</span></h2><span class="mono muted" data-rankings-updated>正在读取…</span></div><p class="panel-lead">GitHub 上今日新增 star 最多的开源仓库，按今日新增 star 数排序；条形长度为相对榜首的比例。</p><div data-rankings aria-live="polite"><p class="loading">正在读取榜单…</p></div><p class="ranking-note mono">来源 GitHub Trending；按今日新增 star 数排序，条形长度为相对榜首的比例。数据由定时任务每 6 小时更新。</p></section>
   <section id="trending" class="resource-block" role="tabpanel" data-panel="trending" aria-labelledby="tab-trending"><div class="section-label"><h2>平台热榜<span class="small-en">HOTBOARD</span></h2><span class="mono muted" data-hotboard-updated></span></div><p class="panel-lead">各平台实时热榜，点击标题跳转原站；右侧数字为平台原始热度值。</p><div class="filters hotboard-tabs" data-hotboard-tabs aria-label="选择热榜平台"></div><div data-hotboard class="hotboard" aria-live="polite"><p class="loading">正在读取热榜…</p></div></section>
+  <section id="models" class="resource-block" role="tabpanel" data-panel="models" aria-labelledby="tab-models" hidden><div class="section-label"><h2>模型榜<span class="small-en">MODEL BOARD</span></h2><span class="mono muted" data-aa-updated>正在读取…</span></div><p class="panel-lead">Artificial Analysis 的语言模型智能与单任务成本排行；默认每个基础模型取最佳配置，成本榜默认只显示智能不低于中位数的模型。</p><div class="model-controls" data-aa-controls></div><div data-aa-board aria-live="polite"><p class="loading">正在读取模型数据…</p></div><p class="ranking-note mono">数据来源 Artificial Analysis（免费档）；单任务成本为 AA 标准任务的加权成本，不是实际使用成本。每天 09:00 更新。</p></section>
   </div>
-  <aside class="source-note"><span class="mono">A NOTE ON SOURCES</span><p>精选收藏与资源下载为手动维护；GitHub 趋势与平台热榜由聚合 Worker 定时抓取写入 R2（来源 GitHub Trending / UAPI），均标注更新时间，抓取失败时保留上一次结果。限时免费游戏已移至「每日」页。</p></aside>
+  <aside class="source-note"><span class="mono">A NOTE ON SOURCES</span><p>精选收藏与资源下载为手动维护；GitHub 趋势、平台热榜与模型榜由聚合 Worker 定时抓取写入 R2（来源 GitHub Trending / UAPI / Artificial Analysis），均标注更新时间，抓取失败时保留上一次结果。限时免费游戏已移至「每日」页。</p></aside>
 </PageLayout>
 <style>
   .resource-tabs { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 40px; padding: 14px 0; background: var(--bg); border-bottom: 1px solid var(--line); }
@@ -44,7 +46,42 @@ import PageLayout from '../layouts/PageLayout.astro';
   .hotboard :global(.hot-more) { margin-top: 16px; padding: 8px 16px; border-radius: var(--radius); background: transparent; font-size: 12px; color: var(--muted); }
   .hotboard :global(.hot-more:hover) { color: var(--accent); border-color: var(--accent); }
   .source-note { margin-top: 60px; border-top: 1px solid var(--line); padding-top: 25px; color: var(--muted); }.source-note span { font-size: 10px; }.source-note p { max-width: 600px; margin-top: 12px; font-size: 13px; }
+  .model-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 0 16px; }
+  .model-controls :global(.model-subtabs) { display: flex; gap: 6px; }
+  .model-controls :global(.model-search) { width: 190px; min-height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--ink); font: 12px var(--font-body); }
+  .model-controls :global(.model-search):focus { outline: none; border-color: var(--accent); }
+  .model-controls :global(.model-view), .model-controls :global(.model-toggle) { font: 10px var(--font-mono); letter-spacing: .04em; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; }
+  .model-controls :global(.model-view[aria-pressed='true']), .model-controls :global(.model-toggle[aria-pressed='true']) { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+  .model-controls :global(.model-toggle[hidden]) { display: none; }
+  .model-controls :global(.model-note) { margin-left: auto; font: 10px var(--font-mono); color: var(--muted); }
+  :global(.model-head), :global(.model-row) { display: grid; grid-template-columns: 46px minmax(0, 1fr) 96px 112px; gap: 18px; align-items: center; }
+  :global(.model-head) { padding: 0 0 10px; border-bottom: 1px solid var(--line); font: 10px var(--font-mono); color: var(--muted); letter-spacing: .06em; }
+  :global(.model-head span:nth-child(3)), :global(.model-head span:nth-child(4)) { text-align: right; }
+  :global(.model-row) { width: 100%; padding: 14px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+  :global(.model-row:hover) { color: var(--accent); }
+  :global(.model-rank) { font: 12px var(--font-mono); color: var(--accent); }
+  :global(.model-name) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; min-width: 0; }
+  :global(.model-name strong) { font-size: 16px; font-weight: 550; }
+  :global(.model-meta) { font-size: 12px; color: var(--muted); }
+  :global(.model-effort) { font: 9px var(--font-mono); letter-spacing: .05em; padding: 2px 6px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); }
+  :global(.model-effort.is-max) { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); color: var(--accent); }
+  :global(.model-frontier) { font: 9px var(--font-mono); color: var(--accent); }
+  :global(.model-num) { font: 12px var(--font-mono); text-align: right; color: var(--muted); }
+  :global(.model-drawer) { position: fixed; inset: 0; z-index: 60; display: flex; justify-content: flex-end; background: rgba(0, 0, 0, .45); }
+  :global(.model-drawer[hidden]) { display: none; }
+  :global(.model-drawer-panel) { width: min(560px, 100%); height: 100%; overflow: auto; background: var(--bg); border-left: 1px solid var(--line); padding: 28px; }
+  :global(.model-drawer-head) { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  :global(.model-drawer-head h3) { margin: 0; font-size: 24px; font-weight: 550; }
+  :global(.model-drawer-meta) { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+  :global(.model-close) { padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); font: 10px var(--font-mono); cursor: pointer; }
+  :global(.model-levels) { margin-top: 24px; border-top: 1px solid var(--line); }
+  :global(.model-level) { display: grid; grid-template-columns: 1fr 84px 108px; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font: 12px var(--font-mono); }
+  :global(.model-level span:nth-child(2)), :global(.model-level span:nth-child(3)) { text-align: right; }
+  :global(.model-scatter) { width: 100%; height: auto; margin: 20px 0 0; color: var(--muted); }
+  :global(.model-scatter .dot) { fill: var(--accent); }
+  :global(.model-source) { display: inline-flex; margin-top: 16px; font-size: 13px; color: var(--accent); }
   @media(max-width: 900px) { .resource-grid, .download-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media(max-width: 700px) { :global(.model-head), :global(.model-row) { grid-template-columns: 28px minmax(0, 1fr) 64px 84px; gap: 8px; } :global(.model-head) { font-size: 9px; } :global(.model-name strong) { font-size: 14px; } :global(.model-num) { font-size: 10px; } :global(.model-drawer-panel) { padding: 20px; } .model-controls :global(.model-note) { margin-left: 0; width: 100%; } }
   @media(max-width: 700px) { :global(.ranking-row) { grid-template-columns: 34px 1fr; gap: 10px 16px; }:global(.ranking-score) { grid-column: 2; }:global(.ranking-head) { grid-template-columns: 34px 1fr; gap: 10px 16px; }:global(.ranking-head span:last-child) { display: none; }.hotboard :global(.hot-row) { grid-template-columns: 30px 1fr; }:global(.hot-value) { display: none; } }
   @media(max-width: 600px) { .resource-grid, .download-grid { grid-template-columns: 1fr; }.small-en { display: none; } }
 </style>

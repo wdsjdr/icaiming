@@ -637,6 +637,7 @@ const AGG_TASKS = [
   { id: 'daily-news', label: '每日新闻图', desc: '当日图片已存在则跳过；缺失时消耗约 1 积分。', cost: 1 },
   { id: 'epic', label: 'Epic 限时免费', desc: '写入 misc/epic-free.json，约消耗 1 积分。', cost: 1 },
   { id: 'saying', label: '一言池', desc: '写入 misc/saying.json，免费。', cost: 0 },
+  { id: 'aa-models', label: 'AA 模型榜', desc: '写入 misc/aa-models.json，免费档约 4 次请求。', cost: 0 },
 ];
 
 views.aggregator = async (view) => {

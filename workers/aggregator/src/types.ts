@@ -4,6 +4,7 @@ export interface Env {
   CONTENT_BUCKET: R2Bucket;
   UAPI_KEY?: string;
   RUN_TOKEN?: string;
+  AA_API_KEY?: string;
   HOTBOARD_PLATFORMS?: string;
   HOTBOARD_LIMIT?: string;
   SAYING_COUNT?: string;

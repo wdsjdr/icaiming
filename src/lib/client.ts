@@ -1,5 +1,20 @@
 import type { Post, Profile, Home, Projects, Resources, Downloads, Rankings, HotboardIndex, Hotboard, EpicFree, SteamDeals, Saying, Answerbook, DailyNews, Resume } from './content';
 
+type AaItem = {
+  slug: string; name: string; baseName: string; baseKey: string; creator: string | null;
+  effort: string | null; mode: string | null; fallback: boolean; isMax: boolean;
+  isBestConfig: boolean; isEfficiencyFrontier: boolean;
+  intelligence: number | null; costPerTask: number | null;
+  priceInput: number | null; priceOutput: number | null;
+  releaseDate: string | null; sourceUrl: string;
+};
+type AaPayload = {
+  updatedAt: string;
+  source: { name: string; url: string; tier: string };
+  stats: { models: number; baseModels: number; costModels: number; medianIntelligence: number | null; costMedianIntelligence: number | null };
+  items: AaItem[];
+};
+
 const requests = new Map<string, Promise<unknown>>();
 function fetchData<T>(name: string): Promise<T> {
   if (!requests.has(name)) requests.set(name, fetch(`/api/${name}`, { signal: AbortSignal.timeout(10000) }).then(async (response) => {
@@ -336,13 +351,180 @@ async function hotboard() {
     await show(selected);
   } catch { recover(target, hotboard); }
 }
+const AA_PREVIEW = 12;
+const AA_EFFORT_ORDER = ['max', 'xhigh', 'high', 'medium', 'low', 'minimal'];
+function aaMoney(value: number | null) {
+  if (value == null) return '—';
+  if (value === 0) return '免费';
+  return `$${value.toFixed(value < 0.1 ? 3 : 2)}`;
+}
+function aaEffortLabel(item: AaItem) {
+  const base = item.effort ? item.effort.toUpperCase() : item.mode ? item.mode.toUpperCase() : '';
+  return base && item.fallback ? `${base} · FB` : base;
+}
+function aaScatter(levels: AaItem[]) {
+  const points = levels.filter((item) => item.intelligence != null && item.costPerTask != null);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 340 190');
+  svg.setAttribute('class', 'model-scatter');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', '各推理等级的成本与智能分布');
+  const label = (x: number, y: number, text: string) => {
+    const element = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    element.setAttribute('x', String(x)); element.setAttribute('y', String(y)); element.textContent = text; svg.append(element);
+  };
+  if (points.length < 2) { label(20, 100, '可比较的等级不足'); return svg; }
+  const costs = points.map((item) => Math.max(item.costPerTask as number, 0.0001));
+  const ints = points.map((item) => item.intelligence as number);
+  const minX = Math.min(...costs.map((cost) => Math.log10(cost)));
+  const maxX = Math.max(...costs.map((cost) => Math.log10(cost)));
+  const minY = Math.min(...ints); const maxY = Math.max(...ints);
+  const px = (cost: number) => 42 + (maxX === minX ? 0.5 : (Math.log10(Math.max(cost, 0.0001)) - minX) / (maxX - minX)) * 276;
+  const py = (value: number) => 158 - (maxY === minY ? 0.5 : (value - minY) / (maxY - minY)) * 128;
+  const axis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  axis.setAttribute('x1', '42'); axis.setAttribute('y1', '158'); axis.setAttribute('x2', '318'); axis.setAttribute('y2', '158');
+  axis.setAttribute('stroke', 'currentColor'); axis.setAttribute('opacity', '.25'); svg.append(axis);
+  const sorted = [...points].sort((a, b) => (a.costPerTask as number) - (b.costPerTask as number));
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  path.setAttribute('points', sorted.map((item) => `${px(item.costPerTask as number)},${py(item.intelligence as number)}`).join(' '));
+  path.setAttribute('fill', 'none'); path.setAttribute('stroke', 'currentColor'); path.setAttribute('opacity', '.35'); svg.append(path);
+  for (const item of sorted) {
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    dot.setAttribute('cx', String(px(item.costPerTask as number))); dot.setAttribute('cy', String(py(item.intelligence as number)));
+    dot.setAttribute('r', '3.2'); dot.setAttribute('class', 'dot');
+    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+    title.textContent = `${aaEffortLabel(item) || item.name} · 智能 ${item.intelligence} · ${aaMoney(item.costPerTask)}`;
+    dot.append(title); svg.append(dot);
+  }
+  label(42, 178, aaMoney(Math.min(...costs)));
+  label(286, 178, aaMoney(Math.max(...costs)));
+  label(42, 24, String(maxY));
+  return svg;
+}
+async function aaModels() {
+  const board = document.querySelector('[data-aa-board]'); if (!board) return;
+  const controls = document.querySelector('[data-aa-controls]');
+  const stamp = document.querySelector('[data-aa-updated]');
+  try {
+    const data = await fetchOptional<AaPayload>('aa-models');
+    if (stamp) stamp.textContent = data?.updatedAt ? `来源 AA · 更新于 ${formatTime(data.updatedAt)}` : '尚未更新';
+    if (!data || !data.items.length) { board.replaceChildren(empty('模型数据尚未更新，等待下一次抓取。')); return; }
+
+    let view: 'intelligence' | 'cost' = 'intelligence';
+    let query = '';
+    let onlyMax = false;
+    let showAll = false;
+    let expanded = false;
+
+    const intelligenceButton = node('button', '智能榜', 'model-view');
+    const costButton = node('button', '成本榜', 'model-view');
+    const maxButton = node('button', '仅 Max', 'model-toggle');
+    const allButton = node('button', '显示全部', 'model-toggle');
+    for (const button of [intelligenceButton, costButton, maxButton, allButton]) button.type = 'button';
+    const sub = node('div', '', 'model-subtabs');
+    sub.append(intelligenceButton, costButton);
+    const search = node('input', '', 'model-search') as HTMLInputElement;
+    search.type = 'search'; search.placeholder = '搜索模型或创建者'; search.setAttribute('aria-label', '搜索模型或创建者');
+    const note = node('span', '', 'model-note');
+
+    const overlay = node('div', '', 'model-drawer');
+    overlay.hidden = true; overlay.setAttribute('role', 'dialog'); overlay.setAttribute('aria-modal', 'true'); overlay.setAttribute('aria-label', '模型详情');
+    const panel = node('div', '', 'model-drawer-panel');
+    overlay.append(panel); document.body.append(overlay);
+    let lastFocus: HTMLElement | null = null;
+    const close = () => { overlay.hidden = true; history.replaceState(null, '', `${location.pathname}?tab=models`); lastFocus?.focus(); };
+    overlay.addEventListener('click', (event) => { if (event.target === overlay) close(); });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !overlay.hidden) close(); });
+
+    const levelsOf = (key: string) => data.items.filter((item) => item.baseKey === key).sort((a, b) => {
+      const ra = a.effort ? AA_EFFORT_ORDER.indexOf(a.effort) : 99;
+      const rb = b.effort ? AA_EFFORT_ORDER.indexOf(b.effort) : 99;
+      return ra - rb || (b.intelligence ?? -1) - (a.intelligence ?? -1);
+    });
+
+    const open = (item: AaItem, remember: boolean) => {
+      lastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      const levels = levelsOf(item.baseKey);
+      const head = node('div', '', 'model-drawer-head');
+      const titleBox = node('div');
+      titleBox.append(node('h3', item.baseName));
+      const meta = [item.creator, item.releaseDate].filter(Boolean).join(' · ');
+      if (meta) titleBox.append(node('p', meta, 'model-drawer-meta'));
+      const closeButton = node('button', '关闭 ✕', 'model-close');
+      closeButton.type = 'button'; closeButton.addEventListener('click', close);
+      head.append(titleBox, closeButton);
+      const levelsBox = node('div', '', 'model-levels');
+      for (const level of levels) {
+        const row = node('div', '', 'model-level');
+        row.append(node('span', aaEffortLabel(level) || level.name), node('span', level.intelligence == null ? '—' : level.intelligence.toFixed(1)), node('span', aaMoney(level.costPerTask)));
+        levelsBox.append(row);
+      }
+      panel.replaceChildren(head, levelsBox, aaScatter(levels), link(item.sourceUrl, '在 Artificial Analysis 查看 ↗', 'model-source'));
+      overlay.hidden = false; closeButton.focus();
+      if (remember) history.replaceState(null, '', `${location.pathname}?tab=models&model=${encodeURIComponent(item.baseKey)}`);
+    };
+
+    const render = () => {
+      intelligenceButton.setAttribute('aria-pressed', String(view === 'intelligence'));
+      costButton.setAttribute('aria-pressed', String(view === 'cost'));
+      maxButton.setAttribute('aria-pressed', String(onlyMax));
+      allButton.setAttribute('aria-pressed', String(showAll));
+      allButton.hidden = view !== 'cost';
+      const median = data.stats.costMedianIntelligence;
+      let items = data.items.filter((item) => item.isBestConfig);
+      if (view === 'cost') items = items.filter((item) => item.costPerTask != null);
+      if (onlyMax) items = items.filter((item) => item.isMax);
+      if (view === 'cost' && !showAll && median != null) items = items.filter((item) => item.intelligence != null && item.intelligence >= median);
+      if (query) items = items.filter((item) => `${item.baseName} ${item.name} ${item.creator ?? ''}`.toLocaleLowerCase().includes(query));
+      items.sort((a, b) => view === 'cost'
+        ? (a.costPerTask as number) - (b.costPerTask as number) || (b.intelligence ?? -1) - (a.intelligence ?? -1)
+        : (b.intelligence ?? -1) - (a.intelligence ?? -1) || (a.costPerTask ?? Infinity) - (b.costPerTask ?? Infinity));
+      const visible = expanded ? items : items.slice(0, AA_PREVIEW);
+      const head = node('div', '', 'model-head');
+      head.append(node('span', '排名'), node('span', '模型'), node('span', '智能指数'), node('span', '单任务成本'));
+      const list = node('div', '', 'model-list');
+      list.append(...visible.map((item, index) => {
+        const row = node('button', '', 'model-row'); row.type = 'button';
+        row.append(node('span', String(index + 1).padStart(2, '0'), 'model-rank'));
+        const name = node('div', '', 'model-name');
+        name.append(node('strong', item.baseName));
+        if (item.creator) name.append(node('span', item.creator, 'model-meta'));
+        const effort = aaEffortLabel(item);
+        if (effort) name.append(node('span', effort, item.isMax ? 'model-effort is-max' : 'model-effort'));
+        if (item.isEfficiencyFrontier) name.append(node('span', '效率前沿', 'model-frontier'));
+        row.append(name, node('span', item.intelligence == null ? '—' : item.intelligence.toFixed(1), 'model-num'), node('span', aaMoney(item.costPerTask), 'model-num'));
+        row.addEventListener('click', () => open(item, true));
+        return row;
+      }));
+      if (!items.length) list.append(empty(view === 'cost' && !showAll ? '没有达到中位数门槛的模型，试试「显示全部」。' : '没有匹配的模型。'));
+      board.replaceChildren(head, list);
+      note.textContent = `${items.length} 个模型 · 智能中位数 ${median == null ? '—' : median.toFixed(1)}`;
+      if (items.length > AA_PREVIEW) {
+        const toggle = node('button', expanded ? '收起 ▴' : `展开全部 ${items.length} 条 ▾`, 'ranking-more');
+        toggle.addEventListener('click', () => { expanded = !expanded; render(); });
+        board.append(toggle);
+      }
+    };
+
+    intelligenceButton.addEventListener('click', () => { view = 'intelligence'; expanded = false; render(); });
+    costButton.addEventListener('click', () => { view = 'cost'; expanded = false; render(); });
+    maxButton.addEventListener('click', () => { onlyMax = !onlyMax; expanded = false; render(); });
+    allButton.addEventListener('click', () => { showAll = !showAll; expanded = false; render(); });
+    search.addEventListener('input', () => { query = search.value.trim().toLocaleLowerCase(); expanded = false; render(); });
+    controls?.replaceChildren(sub, search, maxButton, allButton, note);
+
+    render();
+    const wanted = new URLSearchParams(location.search).get('model');
+    if (wanted) { const match = data.items.find((item) => item.baseKey === wanted); if (match) open(match, false); }
+  } catch { recover(board, aaModels); }
+}
 function resourceTabs() {
   const tabs = [...document.querySelectorAll<HTMLButtonElement>('[data-resource-tabs] [role="tab"]')];
   const panels = [...document.querySelectorAll<HTMLElement>('[data-resource-panels] [role="tabpanel"]')];
   const bar = document.querySelector<HTMLElement>('[data-resource-tabs]');
   if (!tabs.length || !panels.length) return;
   const keys = new Set(panels.map((panel) => panel.dataset.panel ?? ''));
-  const loaders: Record<string, () => void> = { curated: () => void resources(), downloads: () => void downloads(), rankings: () => void rankings(), trending: () => void hotboard() };
+  const loaders: Record<string, () => void> = { curated: () => void resources(), downloads: () => void downloads(), rankings: () => void rankings(), trending: () => void hotboard(), models: () => void aaModels() };
   const loaded = new Set<string>();
   const activate = (key: string, remember: boolean) => {
     tabs.forEach((tab) => { const active = tab.dataset.panel === key; tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1; });
@@ -365,8 +547,10 @@ function resourceTabs() {
     sync();
     window.addEventListener('resize', sync, { passive: true });
   }
+  const params = new URLSearchParams(location.search);
+  const requested = params.get('tab');
   const hash = location.hash.slice(1);
-  activate(keys.has(hash) ? hash : 'trending', false);
+  activate(requested && keys.has(requested) ? requested : keys.has(hash) ? hash : 'trending', false);
   window.addEventListener('hashchange', () => { const next = location.hash.slice(1); if (keys.has(next)) activate(next, false); });
 }
 function answerbook() {

@@ -7,7 +7,7 @@ const collectionKeys = new Map<string, string>([
   ['resume', 'resume/resume.json'], ['resources', 'resources/index.json'],
   ['downloads', 'downloads/index.json'], ['rankings', 'rankings/combined.json'],
   ['epic-free', 'misc/epic-free.json'], ['saying', 'misc/saying.json'],
-  ['steam-deals', 'misc/steam-deals.json'],
+  ['steam-deals', 'misc/steam-deals.json'], ['aa-models', 'misc/aa-models.json'],
 ]);
 const hotboardTypes = ['bilibili', 'weibo', 'toutiao', 'douyin', 'netease-music', 'history', 'weatheralarm'];
 
