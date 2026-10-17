@@ -55,6 +55,13 @@ import PageLayout from '../layouts/PageLayout.astro';
   .model-overview :global(.model-scatter .dot.front) { fill: var(--accent); opacity: 1; }
   .model-overview :global(.model-scatter .dot:hover), .model-overview :global(.model-scatter .dot:focus) { opacity: 1; fill: var(--accent); outline: none; }
   .model-overview :global(.model-scatter .frontier-line) { fill: none; stroke: var(--accent); stroke-width: 1.2; opacity: .65; }
+  :global(.model-level-scatter) { display: block; width: 100%; height: auto; margin-top: 6px; color: var(--muted); }
+  :global(.model-level-scatter .grid) { stroke: var(--line); stroke-width: 1; }
+  :global(.model-level-scatter text) { font: 9px var(--font-mono); fill: var(--muted); }
+  :global(.model-level-scatter .dot) { fill: var(--muted); opacity: .5; }
+  :global(.model-level-scatter .dot.front) { fill: var(--accent); opacity: 1; }
+  :global(.model-level-scatter .frontier-line) { fill: none; stroke: var(--accent); stroke-width: 1.2; opacity: .65; }
+  :global(.model-chart-title) { margin: 26px 0 0; font: 10px var(--font-mono); letter-spacing: .06em; color: var(--muted); }
   .model-legend { margin: 0 0 12px; font: 9px var(--font-mono); color: var(--muted); letter-spacing: .03em; }
   .model-legend :global(.mark) { color: var(--accent); }
   .model-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin: 0 0 6px; }

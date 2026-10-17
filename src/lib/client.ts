@@ -368,7 +368,7 @@ function aaOverview(items: AaItem[], onOpen: (item: AaItem) => void) {
   svg.setAttribute('viewBox', '0 0 760 320');
   svg.setAttribute('class', 'model-scatter');
   svg.setAttribute('role', 'img');
-  svg.setAttribute('aria-label', '模型智能指数与单任务成本散点图：横轴为智能指数，纵轴为单任务成本（对数）');
+  svg.setAttribute('aria-label', '模型价格与智能指数散点图：横轴为单任务成本（对数），纵轴为智能指数');
   const make = (name: string, attrs: Record<string, string>) => {
     const element = document.createElementNS('http://www.w3.org/2000/svg', name);
     for (const [key, value] of Object.entries(attrs)) element.setAttribute(key, value);
@@ -380,36 +380,36 @@ function aaOverview(items: AaItem[], onOpen: (item: AaItem) => void) {
   };
   if (points.length < 2) { text(24, 120, '有成本数据的模型不足'); return svg; }
   const maxInt = Math.max(...points.map((item) => item.intelligence as number), 10);
-  const xMax = Math.max(10, Math.ceil(maxInt / 10) * 10);
+  const yMax = Math.max(10, Math.ceil(maxInt / 10) * 10);
   const costs = points.map((item) => item.costPerTask as number);
   const minCost = Math.max(Math.min(...costs), 0.0001);
   const maxCost = Math.max(...costs);
   const lo = Math.log10(minCost);
   const hi = Math.log10(maxCost);
-  const X = (value: number) => 66 + (value / xMax) * 664;
-  const Y = (cost: number) => 268 - ((Math.log10(Math.max(cost, 0.0001)) - lo) / (hi === lo ? 1 : hi - lo)) * 226;
-  const ticks = [0.001, 0.01, 0.1, 1, 10].filter((tick) => tick >= minCost * 0.8 && tick <= maxCost * 1.25);
-  for (const tick of ticks) {
-    const yy = Y(tick);
-    svg.append(make('line', { x1: '66', y1: String(yy), x2: '730', y2: String(yy), class: 'grid' }));
-    text(58, yy + 3, `$${tick}`, { 'text-anchor': 'end' });
-  }
-  for (const tick of [0, Math.round(xMax / 2), xMax]) {
+  const X = (cost: number) => 66 + ((Math.log10(Math.max(cost, 0.0001)) - lo) / (hi === lo ? 1 : hi - lo)) * 664;
+  const Y = (value: number) => 268 - (value / yMax) * 226;
+  const costTicks = [0.001, 0.01, 0.1, 1, 10].filter((tick) => tick >= minCost * 0.8 && tick <= maxCost * 1.25);
+  for (const tick of costTicks) {
     const xx = X(tick);
     svg.append(make('line', { x1: String(xx), y1: '42', x2: String(xx), y2: '268', class: 'grid', opacity: '.45' }));
-    text(xx, 286, String(tick), { 'text-anchor': 'middle' });
+    text(xx, 286, `$${tick}`, { 'text-anchor': 'middle' });
   }
-  text(398, 310, '智能指数（越高越强）', { 'text-anchor': 'middle' });
-  text(16, 155, '单任务成本（USD，对数）', { 'text-anchor': 'middle', transform: 'rotate(-90 16 155)' });
+  for (const tick of [0, Math.round(yMax / 2), yMax]) {
+    const yy = Y(tick);
+    svg.append(make('line', { x1: '66', y1: String(yy), x2: '730', y2: String(yy), class: 'grid' }));
+    text(58, yy + 3, String(tick), { 'text-anchor': 'end' });
+  }
+  text(398, 310, '单任务成本（USD，对数，越左越省）', { 'text-anchor': 'middle' });
+  text(16, 155, '智能指数（越高越强）', { 'text-anchor': 'middle', transform: 'rotate(-90 16 155)' });
   text(66, 28, '越靠左上越划算');
   const frontier = points.filter((item) => item.isEfficiencyFrontier).sort((a, b) => (a.costPerTask as number) - (b.costPerTask as number));
   if (frontier.length > 1) {
-    svg.append(make('polyline', { points: frontier.map((item) => `${X(item.intelligence as number)},${Y(item.costPerTask as number)}`).join(' '), class: 'frontier-line' }));
+    svg.append(make('polyline', { points: frontier.map((item) => `${X(item.costPerTask as number)},${Y(item.intelligence as number)}`).join(' '), class: 'frontier-line' }));
   }
   for (const item of points) {
     const dot = make('circle', {
-      cx: String(X(item.intelligence as number)),
-      cy: String(Y(item.costPerTask as number)),
+      cx: String(X(item.costPerTask as number)),
+      cy: String(Y(item.intelligence as number)),
       r: item.isEfficiencyFrontier ? '4.2' : '2.6',
       class: item.isEfficiencyFrontier ? 'dot front' : 'dot',
       tabindex: '0',
@@ -424,6 +424,57 @@ function aaOverview(items: AaItem[], onOpen: (item: AaItem) => void) {
       if (key === 'Enter' || key === ' ') { event.preventDefault(); onOpen(item); }
     });
     svg.append(dot);
+  }
+  return svg;
+}
+function aaLevelScatter(levels: AaItem[]) {
+  const effortRank: Record<string, number> = { 'non-reasoning': 0, minimal: 1, low: 2, medium: 3, high: 4, xhigh: 5, max: 6 };
+  const rows = levels.map((item) => {
+    const rank = item.effort ? effortRank[item.effort] : item.mode === 'non-reasoning' ? 0 : null;
+    if (rank == null || item.costPerTask == null || !item.intelligence) return null;
+    return { item, rank, value: item.costPerTask / item.intelligence };
+  }).filter((row): row is { item: AaItem; rank: number; value: number } => row != null).sort((a, b) => a.rank - b.rank);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 640 250');
+  svg.setAttribute('class', 'model-scatter model-level-scatter');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', '各推理等级的单位智能指数价格：横轴为推理强度，纵轴为每点智能的价格');
+  const make = (name: string, attrs: Record<string, string>) => {
+    const element = document.createElementNS('http://www.w3.org/2000/svg', name);
+    for (const [key, value] of Object.entries(attrs)) element.setAttribute(key, value);
+    return element;
+  };
+  const text = (x: number, y: number, value: string, attrs: Record<string, string> = {}) => {
+    const element = make('text', { x: String(x), y: String(y), ...attrs });
+    element.textContent = value; svg.append(element); return element;
+  };
+  if (rows.length < 2) { text(20, 110, '可比较的等级不足'); return svg; }
+  const maxPrice = Math.max(...rows.map((row) => row.value), 0.001);
+  const X = (rank: number) => 58 + (rank / 6) * 546;
+  const Y = (value: number) => 204 - (value / maxPrice) * 152;
+  for (const tick of [0, maxPrice / 2, maxPrice]) {
+    const yy = Y(tick);
+    svg.append(make('line', { x1: '58', y1: String(yy), x2: '604', y2: String(yy), class: 'grid', opacity: tick === 0 ? '.8' : '.45' }));
+    text(50, yy + 3, aaMoney(tick), { 'text-anchor': 'end' });
+  }
+  for (const row of rows) {
+    const xx = X(row.rank);
+    svg.append(make('line', { x1: String(xx), y1: '52', x2: String(xx), y2: '204', class: 'grid', opacity: '.35' }));
+    text(xx, 224, row.item.effort ? row.item.effort.toUpperCase() : 'NON-REASONING', { 'text-anchor': 'middle' });
+  }
+  text(331, 246, '推理强度（越右越强）', { 'text-anchor': 'middle' });
+  text(14, 128, '每点智能价格（USD，越低越好）', { 'text-anchor': 'middle', transform: 'rotate(-90 14 128)' });
+  svg.append(make('polyline', { points: rows.map((row) => `${X(row.rank)},${Y(row.value)}`).join(' '), class: 'frontier-line' }));
+  for (const row of rows) {
+    const dot = make('circle', {
+      cx: String(X(row.rank)),
+      cy: String(Y(row.value)),
+      r: row.item.isBestConfig ? '4.2' : '3',
+      class: row.item.isBestConfig ? 'dot front' : 'dot'
+    });
+    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+    title.textContent = `${aaEffortLabel(row.item)} · 智能 ${row.item.intelligence} · 每点 ${aaMoney(row.value)}`;
+    dot.append(title); svg.append(dot);
   }
   return svg;
 }
@@ -514,7 +565,8 @@ async function aaModels() {
         levelsBox.append(row);
       }
       const footnote = node('p', 'FB = 默认回退配置；每点智能 = 单任务成本 ÷ 智能指数。', 'model-footnote');
-      panel.replaceChildren(head, kpis, levelsBox, footnote, link(item.sourceUrl, '在 Artificial Analysis 查看 ↗', 'model-source'));
+      const chartTitle = node('p', '推理强度 × 每点智能价格', 'model-chart-title');
+      panel.replaceChildren(head, kpis, levelsBox, chartTitle, aaLevelScatter(levels), footnote, link(item.sourceUrl, '在 Artificial Analysis 查看 ↗', 'model-source'));
       overlay.hidden = false; closeButton.focus();
       if (remember) history.replaceState(null, '', `${location.pathname}?tab=models&model=${encodeURIComponent(item.baseKey)}`);
     };
