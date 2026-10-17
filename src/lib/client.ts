@@ -455,7 +455,7 @@ function aaLevelScatter(levels: AaItem[]) {
   for (const tick of [0, maxPrice / 2, maxPrice]) {
     const yy = Y(tick);
     svg.append(make('line', { x1: '58', y1: String(yy), x2: '604', y2: String(yy), class: 'grid', opacity: tick === 0 ? '.8' : '.45' }));
-    text(50, yy + 3, aaMoney(tick), { 'text-anchor': 'end' });
+    text(50, yy + 3, tick === 0 ? '$0' : `$${tick.toFixed(tick < 0.1 ? 3 : 2)}`, { 'text-anchor': 'end' });
   }
   for (const row of rows) {
     const xx = X(row.rank);
@@ -616,7 +616,7 @@ async function aaModels() {
         if (view === 'cost') {
           const efficiency = item.costPerTask != null && item.intelligence ? item.costPerTask / item.intelligence : null;
           const effMetric = node('div', '', 'model-metric');
-          effMetric.append(node('span', aaMoney(efficiency), 'model-num'), node('span', '每点智能', 'model-sub'));
+          effMetric.append(node('span', aaMoney(efficiency), 'model-num'));
           row.append(name, costMetric, intMetric, effMetric);
         } else {
           row.append(name, intMetric, costMetric);
