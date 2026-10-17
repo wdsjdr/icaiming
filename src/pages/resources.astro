@@ -14,7 +14,7 @@ import PageLayout from '../layouts/PageLayout.astro';
   <section id="downloads" class="resource-block" role="tabpanel" data-panel="downloads" aria-labelledby="tab-downloads" hidden><div class="section-label"><h2>资源下载<span class="small-en">DOWNLOADS</span></h2><span class="mono muted">FILES / ASSETS</span></div><p class="panel-lead">手动维护的下载资源，包含本机文件与外部链接。</p><div data-download-list class="download-grid" aria-live="polite"><p class="loading">正在读取下载项…</p></div></section>
   <section id="rankings" class="resource-block" role="tabpanel" data-panel="rankings" aria-labelledby="tab-rankings" hidden><div class="section-label"><h2>GitHub 趋势<span class="small-en">GITHUB TRENDING</span></h2><span class="mono muted" data-rankings-updated>正在读取…</span></div><p class="panel-lead">GitHub 上今日新增 star 最多的开源仓库，按今日新增 star 数排序；条形长度为相对榜首的比例。</p><div data-rankings aria-live="polite"><p class="loading">正在读取榜单…</p></div><p class="ranking-note mono">来源 GitHub Trending；按今日新增 star 数排序，条形长度为相对榜首的比例。数据由定时任务每 6 小时更新。</p></section>
   <section id="trending" class="resource-block" role="tabpanel" data-panel="trending" aria-labelledby="tab-trending"><div class="section-label"><h2>平台热榜<span class="small-en">HOTBOARD</span></h2><span class="mono muted" data-hotboard-updated></span></div><p class="panel-lead">各平台实时热榜，点击标题跳转原站；右侧数字为平台原始热度值。</p><div class="filters hotboard-tabs" data-hotboard-tabs aria-label="选择热榜平台"></div><div data-hotboard class="hotboard" aria-live="polite"><p class="loading">正在读取热榜…</p></div></section>
-  <section id="models" class="resource-block" role="tabpanel" data-panel="models" aria-labelledby="tab-models" hidden><div class="section-label"><h2>模型榜<span class="small-en">MODEL BOARD</span></h2><span class="mono muted" data-aa-updated>正在读取…</span></div><p class="panel-lead">Artificial Analysis 的语言模型智能与单任务成本排行；默认每个基础模型取最佳配置，成本榜默认只显示智能不低于中位数的模型。</p><div class="model-controls" data-aa-controls></div><div data-aa-board aria-live="polite"><p class="loading">正在读取模型数据…</p></div><p class="ranking-note mono">数据来源 Artificial Analysis（免费档）；单任务成本为 AA 标准任务的加权成本，不是实际使用成本。每天 09:00 更新。</p></section>
+  <section id="models" class="resource-block" role="tabpanel" data-panel="models" aria-labelledby="tab-models" hidden><div class="section-label"><h2>模型榜<span class="small-en">MODEL BOARD</span></h2><span class="mono muted" data-aa-updated>正在读取…</span></div><p class="panel-lead">同一模型只展示最强配置；智能指数越高越好，单任务成本越低越省。点击任意模型查看各推理等级。</p><div class="model-overview" data-aa-overview hidden></div><p class="model-legend"><span class="mark">◆</span> 效率前沿：同等成本下智能最高 · 散点仅含有成本数据的模型</p><div class="model-controls" data-aa-controls></div><div data-aa-board aria-live="polite"><p class="loading">正在读取模型数据…</p></div><p class="ranking-note mono">数据来源 Artificial Analysis（免费档）；智能指数为其综合评测分数，单任务成本为 AA 标准任务的加权成本，不是实际使用成本。每天 09:00 更新。</p></section>
   </div>
   <aside class="source-note"><span class="mono">A NOTE ON SOURCES</span><p>精选收藏与资源下载为手动维护；GitHub 趋势、平台热榜与模型榜由聚合 Worker 定时抓取写入 R2（来源 GitHub Trending / UAPI / Artificial Analysis），均标注更新时间，抓取失败时保留上一次结果。限时免费游戏已移至「每日」页。</p></aside>
 </PageLayout>
@@ -46,42 +46,76 @@ import PageLayout from '../layouts/PageLayout.astro';
   .hotboard :global(.hot-more) { margin-top: 16px; padding: 8px 16px; border-radius: var(--radius); background: transparent; font-size: 12px; color: var(--muted); }
   .hotboard :global(.hot-more:hover) { color: var(--accent); border-color: var(--accent); }
   .source-note { margin-top: 60px; border-top: 1px solid var(--line); padding-top: 25px; color: var(--muted); }.source-note span { font-size: 10px; }.source-note p { max-width: 600px; margin-top: 12px; font-size: 13px; }
-  .model-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 0 16px; }
-  .model-controls :global(.model-subtabs) { display: flex; gap: 6px; }
-  .model-controls :global(.model-search) { width: 190px; min-height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--ink); font: 12px var(--font-body); }
-  .model-controls :global(.model-search):focus { outline: none; border-color: var(--accent); }
-  .model-controls :global(.model-view), .model-controls :global(.model-toggle) { font: 10px var(--font-mono); letter-spacing: .04em; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; }
-  .model-controls :global(.model-view[aria-pressed='true']), .model-controls :global(.model-toggle[aria-pressed='true']) { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+  .model-overview { margin: 0 0 14px; padding: 16px 18px 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+  .model-overview[hidden] { display: none; }
+  .model-overview :global(.model-scatter) { display: block; width: 100%; height: auto; color: var(--muted); }
+  .model-overview :global(.model-scatter .grid) { stroke: var(--line); stroke-width: 1; }
+  .model-overview :global(.model-scatter text) { font: 9px var(--font-mono); fill: var(--muted); }
+  .model-overview :global(.model-scatter .dot) { fill: var(--muted); opacity: .4; cursor: pointer; }
+  .model-overview :global(.model-scatter .dot.front) { fill: var(--accent); opacity: 1; }
+  .model-overview :global(.model-scatter .dot:hover), .model-overview :global(.model-scatter .dot:focus) { opacity: 1; fill: var(--accent); outline: none; }
+  .model-overview :global(.model-scatter .frontier-line) { fill: none; stroke: var(--accent); stroke-width: 1.2; opacity: .65; }
+  .model-legend { margin: 0 0 12px; font: 9px var(--font-mono); color: var(--muted); letter-spacing: .03em; }
+  .model-legend :global(.mark) { color: var(--accent); }
+  .model-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin: 0 0 6px; }
+  .model-controls :global(.model-subtabs) { display: flex; gap: 18px; }
+  .model-controls :global(.model-view) { font: 11px var(--font-mono); letter-spacing: .04em; padding: 6px 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); cursor: pointer; }
+  .model-controls :global(.model-view[aria-pressed='true']) { color: var(--ink); border-bottom-color: var(--ink); }
+  .model-controls :global(.model-search) { width: 200px; min-height: 30px; padding: 0 2px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; color: var(--ink); font: 12px var(--font-body); }
+  .model-controls :global(.model-search):focus { outline: none; border-bottom-color: var(--accent); }
+  .model-controls :global(.model-toggle) { display: inline-flex; align-items: center; gap: 7px; padding: 0; border: 0; background: transparent; color: var(--muted); font: 10px var(--font-mono); cursor: pointer; }
+  .model-controls :global(.model-toggle::before) { content: ''; width: 8px; height: 8px; border: 1px solid var(--line); border-radius: 2px; }
+  .model-controls :global(.model-toggle[aria-pressed='true']) { color: var(--ink); }
+  .model-controls :global(.model-toggle[aria-pressed='true']::before) { background: var(--accent); border-color: var(--accent); }
   .model-controls :global(.model-toggle[hidden]) { display: none; }
   .model-controls :global(.model-note) { margin-left: auto; font: 10px var(--font-mono); color: var(--muted); }
-  :global(.model-head), :global(.model-row) { display: grid; grid-template-columns: 46px minmax(0, 1fr) 96px 112px; gap: 18px; align-items: center; }
-  :global(.model-head) { padding: 0 0 10px; border-bottom: 1px solid var(--line); font: 10px var(--font-mono); color: var(--muted); letter-spacing: .06em; }
-  :global(.model-head span:nth-child(3)), :global(.model-head span:nth-child(4)) { text-align: right; }
-  :global(.model-row) { width: 100%; padding: 14px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
-  :global(.model-row:hover) { color: var(--accent); }
+  :global(.model-head), :global(.model-row) { display: grid; grid-template-columns: 46px minmax(0, 1fr) 110px 118px; gap: 18px; align-items: center; }
+  :global(.model-head.is-cost), :global(.model-row.is-cost) { grid-template-columns: 46px minmax(0, 1fr) 110px 100px 100px; }
+  :global(.model-head) { padding: 10px 0 8px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font: 10px var(--font-mono); color: var(--muted); letter-spacing: .06em; }
+  :global(.model-head span:nth-child(n+3)) { text-align: right; }
+  :global(.model-row) { width: 100%; padding: 15px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+  :global(.model-row:hover) { background: color-mix(in srgb, var(--ink) 3%, transparent); }
   :global(.model-rank) { font: 12px var(--font-mono); color: var(--accent); }
   :global(.model-name) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; min-width: 0; }
   :global(.model-name strong) { font-size: 16px; font-weight: 550; }
-  :global(.model-meta) { font-size: 12px; color: var(--muted); }
-  :global(.model-effort) { font: 9px var(--font-mono); letter-spacing: .05em; padding: 2px 6px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); }
-  :global(.model-effort.is-max) { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); color: var(--accent); }
-  :global(.model-frontier) { font: 9px var(--font-mono); color: var(--accent); }
-  :global(.model-num) { font: 12px var(--font-mono); text-align: right; color: var(--muted); }
+  :global(.model-meta) { font: 11px var(--font-mono); color: var(--muted); }
+  :global(.model-frontier) { font: 9px var(--font-mono); color: var(--accent); letter-spacing: .05em; }
+  :global(.model-open) { margin-left: auto; font: 10px var(--font-mono); color: var(--accent); opacity: 0; transition: opacity .15s; white-space: nowrap; }
+  :global(.model-row:hover .model-open), :global(.model-row:focus-visible .model-open) { opacity: 1; }
+  :global(.model-metric) { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  :global(.model-num) { font: 13px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); }
+  :global(.model-sub) { font: 9px var(--font-mono); color: var(--muted); }
+  :global(.model-bar) { width: 100%; height: 2px; background: var(--line); border-radius: 999px; overflow: hidden; }
+  :global(.model-bar i) { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
   :global(.model-drawer) { position: fixed; inset: 0; z-index: 60; display: flex; justify-content: flex-end; background: rgba(0, 0, 0, .45); }
   :global(.model-drawer[hidden]) { display: none; }
-  :global(.model-drawer-panel) { width: min(560px, 100%); height: 100%; overflow: auto; background: var(--bg); border-left: 1px solid var(--line); padding: 28px; }
-  :global(.model-drawer-head) { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-  :global(.model-drawer-head h3) { margin: 0; font-size: 24px; font-weight: 550; }
-  :global(.model-drawer-meta) { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
-  :global(.model-close) { padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); font: 10px var(--font-mono); cursor: pointer; }
-  :global(.model-levels) { margin-top: 24px; border-top: 1px solid var(--line); }
-  :global(.model-level) { display: grid; grid-template-columns: 1fr 84px 108px; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font: 12px var(--font-mono); }
-  :global(.model-level span:nth-child(2)), :global(.model-level span:nth-child(3)) { text-align: right; }
-  :global(.model-scatter) { width: 100%; height: auto; margin: 20px 0 0; color: var(--muted); }
-  :global(.model-scatter .dot) { fill: var(--accent); }
-  :global(.model-source) { display: inline-flex; margin-top: 16px; font-size: 13px; color: var(--accent); }
+  :global(.model-drawer-panel) { width: min(640px, 100%); height: 100%; overflow: auto; background: var(--bg); border-left: 1px solid var(--line); padding: 30px 34px 40px; }
+  :global(.model-drawer-head) { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
+  :global(.model-drawer-head h3) { margin: 0; font-size: 26px; font-weight: 550; letter-spacing: -.01em; }
+  :global(.model-drawer-meta) { margin: 8px 0 0; color: var(--muted); font: 11px var(--font-mono); }
+  :global(.model-close) { width: 34px; height: 34px; flex: none; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; }
+  :global(.model-close:hover) { color: var(--accent); border-color: var(--accent); }
+  :global(.model-kpis) { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 20px 0 26px; border: 1px solid var(--line); background: var(--line); }
+  :global(.model-kpi) { padding: 14px 16px; background: var(--bg); }
+  :global(.model-kpi span) { display: block; font: 9px var(--font-mono); color: var(--muted); letter-spacing: .06em; }
+  :global(.model-kpi strong) { display: block; margin-top: 8px; font: 20px var(--font-mono); font-weight: 500; font-variant-numeric: tabular-nums; }
+  :global(.model-levels) { border-top: 1px solid var(--line); }
+  :global(.model-level-head), :global(.model-level) { display: grid; grid-template-columns: minmax(90px, 1fr) 1.1fr 90px 84px; gap: 12px; align-items: center; }
+  :global(.model-level-head) { padding: 9px 0; border-bottom: 1px solid var(--line); font: 9px var(--font-mono); color: var(--muted); letter-spacing: .06em; }
+  :global(.model-level-head span:nth-child(n+2)) { text-align: right; }
+  :global(.model-level) { padding: 11px 0; border-bottom: 1px solid var(--line); font: 11px var(--font-mono); color: var(--muted); }
+  :global(.model-level.is-best) { margin: 0 -10px; padding: 11px 10px; background: color-mix(in srgb, var(--accent) 7%, transparent); color: var(--ink); }
+  :global(.model-level .level-name) { color: var(--ink); letter-spacing: .04em; }
+  :global(.model-level .level-int) { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+  :global(.model-level .level-num) { color: var(--ink); font-variant-numeric: tabular-nums; }
+  :global(.model-level .level-track) { display: block; width: 100%; height: 2px; background: var(--line); }
+  :global(.model-level .level-track i) { display: block; height: 100%; background: var(--accent); }
+  :global(.model-level .level-cost), :global(.model-level .level-eff) { text-align: right; font-variant-numeric: tabular-nums; }
+  :global(.model-source) { display: inline-flex; margin-top: 20px; font-size: 13px; color: var(--accent); }
+  :global(.model-footnote) { margin: 18px 0 0; font: 10px var(--font-mono); color: var(--muted); line-height: 1.7; }
   @media(max-width: 900px) { .resource-grid, .download-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media(max-width: 700px) { :global(.model-head), :global(.model-row) { grid-template-columns: 28px minmax(0, 1fr) 64px 84px; gap: 8px; } :global(.model-head) { font-size: 9px; } :global(.model-name strong) { font-size: 14px; } :global(.model-num) { font-size: 10px; } :global(.model-drawer-panel) { padding: 20px; } .model-controls :global(.model-note) { margin-left: 0; width: 100%; } }
+  @media(max-width: 900px) { .model-overview { display: none !important; } }
+  @media(max-width: 700px) { :global(.model-head), :global(.model-row) { grid-template-columns: 28px minmax(0, 1fr) 64px 80px; gap: 8px; } :global(.model-head.is-cost), :global(.model-row.is-cost) { grid-template-columns: 28px minmax(0, 1fr) 64px 64px; } :global(.model-head.is-cost span:nth-child(5)), :global(.model-row.is-cost > :nth-child(5)) { display: none; } :global(.model-head) { font-size: 9px; } :global(.model-name strong) { font-size: 14px; } :global(.model-num) { font-size: 11px; } :global(.model-open) { display: none; } :global(.model-drawer-panel) { padding: 20px 18px 32px; } :global(.model-kpis) { grid-template-columns: 1fr; } .model-controls :global(.model-note) { margin-left: 0; width: 100%; } }
   @media(max-width: 700px) { :global(.ranking-row) { grid-template-columns: 34px 1fr; gap: 10px 16px; }:global(.ranking-score) { grid-column: 2; }:global(.ranking-head) { grid-template-columns: 34px 1fr; gap: 10px 16px; }:global(.ranking-head span:last-child) { display: none; }.hotboard :global(.hot-row) { grid-template-columns: 30px 1fr; }:global(.hot-value) { display: none; } }
   @media(max-width: 600px) { .resource-grid, .download-grid { grid-template-columns: 1fr; }.small-en { display: none; } }
 </style>

@@ -362,65 +362,91 @@ function aaEffortLabel(item: AaItem) {
   const base = item.effort ? item.effort.toUpperCase() : item.mode ? item.mode.toUpperCase() : '';
   return base && item.fallback ? `${base} · FB` : base;
 }
-function aaScatter(levels: AaItem[]) {
-  const points = levels.filter((item) => item.intelligence != null && item.costPerTask != null);
+function aaOverview(items: AaItem[], onOpen: (item: AaItem) => void) {
+  const points = items.filter((item) => item.isBestConfig && item.intelligence != null && item.costPerTask != null && item.costPerTask > 0);
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 340 190');
+  svg.setAttribute('viewBox', '0 0 760 320');
   svg.setAttribute('class', 'model-scatter');
   svg.setAttribute('role', 'img');
-  svg.setAttribute('aria-label', '各推理等级的成本与智能分布');
-  const label = (x: number, y: number, text: string) => {
-    const element = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    element.setAttribute('x', String(x)); element.setAttribute('y', String(y)); element.textContent = text; svg.append(element);
+  svg.setAttribute('aria-label', '模型智能指数与单任务成本散点图：横轴为智能指数，纵轴为单任务成本（对数）');
+  const make = (name: string, attrs: Record<string, string>) => {
+    const element = document.createElementNS('http://www.w3.org/2000/svg', name);
+    for (const [key, value] of Object.entries(attrs)) element.setAttribute(key, value);
+    return element;
   };
-  if (points.length < 2) { label(20, 100, '可比较的等级不足'); return svg; }
-  const costs = points.map((item) => Math.max(item.costPerTask as number, 0.0001));
-  const ints = points.map((item) => item.intelligence as number);
-  const minX = Math.min(...costs.map((cost) => Math.log10(cost)));
-  const maxX = Math.max(...costs.map((cost) => Math.log10(cost)));
-  const minY = Math.min(...ints); const maxY = Math.max(...ints);
-  const px = (cost: number) => 42 + (maxX === minX ? 0.5 : (Math.log10(Math.max(cost, 0.0001)) - minX) / (maxX - minX)) * 276;
-  const py = (value: number) => 158 - (maxY === minY ? 0.5 : (value - minY) / (maxY - minY)) * 128;
-  const axis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-  axis.setAttribute('x1', '42'); axis.setAttribute('y1', '158'); axis.setAttribute('x2', '318'); axis.setAttribute('y2', '158');
-  axis.setAttribute('stroke', 'currentColor'); axis.setAttribute('opacity', '.25'); svg.append(axis);
-  const sorted = [...points].sort((a, b) => (a.costPerTask as number) - (b.costPerTask as number));
-  const path = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-  path.setAttribute('points', sorted.map((item) => `${px(item.costPerTask as number)},${py(item.intelligence as number)}`).join(' '));
-  path.setAttribute('fill', 'none'); path.setAttribute('stroke', 'currentColor'); path.setAttribute('opacity', '.35'); svg.append(path);
-  for (const item of sorted) {
-    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    dot.setAttribute('cx', String(px(item.costPerTask as number))); dot.setAttribute('cy', String(py(item.intelligence as number)));
-    dot.setAttribute('r', '3.2'); dot.setAttribute('class', 'dot');
-    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-    title.textContent = `${aaEffortLabel(item) || item.name} · 智能 ${item.intelligence} · ${aaMoney(item.costPerTask)}`;
-    dot.append(title); svg.append(dot);
+  const text = (x: number, y: number, value: string, attrs: Record<string, string> = {}) => {
+    const element = make('text', { x: String(x), y: String(y), ...attrs });
+    element.textContent = value; svg.append(element); return element;
+  };
+  if (points.length < 2) { text(24, 120, '有成本数据的模型不足'); return svg; }
+  const maxInt = Math.max(...points.map((item) => item.intelligence as number), 10);
+  const xMax = Math.max(10, Math.ceil(maxInt / 10) * 10);
+  const costs = points.map((item) => item.costPerTask as number);
+  const minCost = Math.max(Math.min(...costs), 0.0001);
+  const maxCost = Math.max(...costs);
+  const lo = Math.log10(minCost);
+  const hi = Math.log10(maxCost);
+  const X = (value: number) => 66 + (value / xMax) * 664;
+  const Y = (cost: number) => 268 - ((Math.log10(Math.max(cost, 0.0001)) - lo) / (hi === lo ? 1 : hi - lo)) * 226;
+  const ticks = [0.001, 0.01, 0.1, 1, 10].filter((tick) => tick >= minCost * 0.8 && tick <= maxCost * 1.25);
+  for (const tick of ticks) {
+    const yy = Y(tick);
+    svg.append(make('line', { x1: '66', y1: String(yy), x2: '730', y2: String(yy), class: 'grid' }));
+    text(58, yy + 3, `$${tick}`, { 'text-anchor': 'end' });
   }
-  label(42, 178, aaMoney(Math.min(...costs)));
-  label(286, 178, aaMoney(Math.max(...costs)));
-  label(42, 24, String(maxY));
+  for (const tick of [0, Math.round(xMax / 2), xMax]) {
+    const xx = X(tick);
+    svg.append(make('line', { x1: String(xx), y1: '42', x2: String(xx), y2: '268', class: 'grid', opacity: '.45' }));
+    text(xx, 286, String(tick), { 'text-anchor': 'middle' });
+  }
+  text(398, 310, '智能指数（越高越强）', { 'text-anchor': 'middle' });
+  text(16, 155, '单任务成本（USD，对数）', { 'text-anchor': 'middle', transform: 'rotate(-90 16 155)' });
+  text(66, 28, '越靠左上越划算');
+  const frontier = points.filter((item) => item.isEfficiencyFrontier).sort((a, b) => (a.costPerTask as number) - (b.costPerTask as number));
+  if (frontier.length > 1) {
+    svg.append(make('polyline', { points: frontier.map((item) => `${X(item.intelligence as number)},${Y(item.costPerTask as number)}`).join(' '), class: 'frontier-line' }));
+  }
+  for (const item of points) {
+    const dot = make('circle', {
+      cx: String(X(item.intelligence as number)),
+      cy: String(Y(item.costPerTask as number)),
+      r: item.isEfficiencyFrontier ? '4.2' : '2.6',
+      class: item.isEfficiencyFrontier ? 'dot front' : 'dot',
+      tabindex: '0',
+      role: 'button'
+    });
+    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+    title.textContent = `${item.baseName} · 智能 ${item.intelligence} · ${aaMoney(item.costPerTask)}`;
+    dot.append(title);
+    dot.addEventListener('click', () => onOpen(item));
+    dot.addEventListener('keydown', (event) => {
+      const key = (event as KeyboardEvent).key;
+      if (key === 'Enter' || key === ' ') { event.preventDefault(); onOpen(item); }
+    });
+    svg.append(dot);
+  }
   return svg;
 }
 async function aaModels() {
   const board = document.querySelector('[data-aa-board]'); if (!board) return;
   const controls = document.querySelector('[data-aa-controls]');
   const stamp = document.querySelector('[data-aa-updated]');
+  const overview = document.querySelector<HTMLElement>('[data-aa-overview]');
   try {
     const data = await fetchOptional<AaPayload>('aa-models');
     if (stamp) stamp.textContent = data?.updatedAt ? `来源 AA · 更新于 ${formatTime(data.updatedAt)}` : '尚未更新';
-    if (!data || !data.items.length) { board.replaceChildren(empty('模型数据尚未更新，等待下一次抓取。')); return; }
+    if (!data || !data.items.length) { board.replaceChildren(empty('模型数据尚未更新，等待下一次抓取。')); if (overview) overview.hidden = true; return; }
 
     let view: 'intelligence' | 'cost' = 'intelligence';
     let query = '';
-    let onlyMax = false;
     let showAll = false;
     let expanded = false;
 
     const intelligenceButton = node('button', '智能榜', 'model-view');
-    const costButton = node('button', '成本榜', 'model-view');
-    const maxButton = node('button', '仅 Max', 'model-toggle');
-    const allButton = node('button', '显示全部', 'model-toggle');
-    for (const button of [intelligenceButton, costButton, maxButton, allButton]) button.type = 'button';
+    const costButton = node('button', '成本效率榜', 'model-view');
+    const allButton = node('button', '只看主流模型', 'model-toggle');
+    allButton.title = '默认隐藏智能指数低于中位数的模型';
+    for (const button of [intelligenceButton, costButton, allButton]) button.type = 'button';
     const sub = node('div', '', 'model-subtabs');
     sub.append(intelligenceButton, costButton);
     const search = node('input', '', 'model-search') as HTMLInputElement;
@@ -445,21 +471,50 @@ async function aaModels() {
     const open = (item: AaItem, remember: boolean) => {
       lastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       const levels = levelsOf(item.baseKey);
+      const best = levels.find((level) => level.isBestConfig) ?? item;
       const head = node('div', '', 'model-drawer-head');
       const titleBox = node('div');
       titleBox.append(node('h3', item.baseName));
       const meta = [item.creator, item.releaseDate].filter(Boolean).join(' · ');
       if (meta) titleBox.append(node('p', meta, 'model-drawer-meta'));
-      const closeButton = node('button', '关闭 ✕', 'model-close');
-      closeButton.type = 'button'; closeButton.addEventListener('click', close);
+      const closeButton = node('button', '×', 'model-close');
+      closeButton.type = 'button'; closeButton.setAttribute('aria-label', '关闭'); closeButton.addEventListener('click', close);
       head.append(titleBox, closeButton);
+      const kpis = node('div', '', 'model-kpis');
+      const kpi = (label: string, value: string) => {
+        const box = node('div', '', 'model-kpi');
+        box.append(node('span', label), node('strong', value));
+        return box;
+      };
+      kpis.append(
+        kpi('最强配置', aaEffortLabel(best) || '—'),
+        kpi('智能指数', best.intelligence == null ? '—' : best.intelligence.toFixed(1)),
+        kpi('单任务成本', aaMoney(best.costPerTask))
+      );
+      const levelHead = node('div', '', 'model-level-head');
+      levelHead.append(node('span', '等级'), node('span', '智能指数'), node('span', '单任务成本'), node('span', '每点智能'));
       const levelsBox = node('div', '', 'model-levels');
+      levelsBox.append(levelHead);
+      const maxInt = Math.max(...levels.map((level) => level.intelligence ?? 0), 1);
       for (const level of levels) {
-        const row = node('div', '', 'model-level');
-        row.append(node('span', aaEffortLabel(level) || level.name), node('span', level.intelligence == null ? '—' : level.intelligence.toFixed(1)), node('span', aaMoney(level.costPerTask)));
+        const row = node('div', '', 'model-level'); if (level.isBestConfig) row.classList.add('is-best');
+        const intCell = node('div', '', 'level-int');
+        intCell.append(node('span', level.intelligence == null ? '—' : level.intelligence.toFixed(1), 'level-num'));
+        const track = node('span', '', 'level-track');
+        const fill = node('i');
+        fill.style.width = `${Math.max(2, Math.round(((level.intelligence ?? 0) / maxInt) * 100))}%`;
+        track.append(fill); intCell.append(track);
+        const efficiency = level.costPerTask != null && level.intelligence ? level.costPerTask / level.intelligence : null;
+        row.append(
+          node('span', aaEffortLabel(level) || level.name, 'level-name'),
+          intCell,
+          node('span', aaMoney(level.costPerTask), 'level-cost'),
+          node('span', aaMoney(efficiency), 'level-eff')
+        );
         levelsBox.append(row);
       }
-      panel.replaceChildren(head, levelsBox, aaScatter(levels), link(item.sourceUrl, '在 Artificial Analysis 查看 ↗', 'model-source'));
+      const footnote = node('p', 'FB = 默认回退配置；每点智能 = 单任务成本 ÷ 智能指数。', 'model-footnote');
+      panel.replaceChildren(head, kpis, levelsBox, footnote, link(item.sourceUrl, '在 Artificial Analysis 查看 ↗', 'model-source'));
       overlay.hidden = false; closeButton.focus();
       if (remember) history.replaceState(null, '', `${location.pathname}?tab=models&model=${encodeURIComponent(item.baseKey)}`);
     };
@@ -467,38 +522,61 @@ async function aaModels() {
     const render = () => {
       intelligenceButton.setAttribute('aria-pressed', String(view === 'intelligence'));
       costButton.setAttribute('aria-pressed', String(view === 'cost'));
-      maxButton.setAttribute('aria-pressed', String(onlyMax));
-      allButton.setAttribute('aria-pressed', String(showAll));
+      allButton.setAttribute('aria-pressed', String(view === 'cost' && !showAll));
       allButton.hidden = view !== 'cost';
       const median = data.stats.costMedianIntelligence;
-      let items = data.items.filter((item) => item.isBestConfig);
-      if (view === 'cost') items = items.filter((item) => item.costPerTask != null);
-      if (onlyMax) items = items.filter((item) => item.isMax);
-      if (view === 'cost' && !showAll && median != null) items = items.filter((item) => item.intelligence != null && item.intelligence >= median);
+      const allBest = data.items.filter((item) => item.isBestConfig);
+      const maxInt = Math.max(...allBest.map((item) => item.intelligence ?? 0), 1);
+      let items = allBest;
+      if (view === 'cost') {
+        items = items.filter((item) => item.costPerTask != null);
+        if (!showAll && median != null) items = items.filter((item) => item.intelligence != null && item.intelligence >= median);
+      }
       if (query) items = items.filter((item) => `${item.baseName} ${item.name} ${item.creator ?? ''}`.toLocaleLowerCase().includes(query));
       items.sort((a, b) => view === 'cost'
         ? (a.costPerTask as number) - (b.costPerTask as number) || (b.intelligence ?? -1) - (a.intelligence ?? -1)
         : (b.intelligence ?? -1) - (a.intelligence ?? -1) || (a.costPerTask ?? Infinity) - (b.costPerTask ?? Infinity));
       const visible = expanded ? items : items.slice(0, AA_PREVIEW);
-      const head = node('div', '', 'model-head');
-      head.append(node('span', '排名'), node('span', '模型'), node('span', '智能指数'), node('span', '单任务成本'));
+      const head = node('div', '', view === 'cost' ? 'model-head is-cost' : 'model-head');
+      if (view === 'cost') head.append(node('span', '排名'), node('span', '模型'), node('span', '单任务成本'), node('span', '智能指数'), node('span', '每点智能'));
+      else head.append(node('span', '排名'), node('span', '模型'), node('span', '智能指数'), node('span', '单任务成本'));
       const list = node('div', '', 'model-list');
       list.append(...visible.map((item, index) => {
-        const row = node('button', '', 'model-row'); row.type = 'button';
+        const row = node('button', '', view === 'cost' ? 'model-row is-cost' : 'model-row'); row.type = 'button';
         row.append(node('span', String(index + 1).padStart(2, '0'), 'model-rank'));
         const name = node('div', '', 'model-name');
+        if (item.isEfficiencyFrontier) {
+          const mark = node('span', '◆', 'model-frontier');
+          mark.title = '效率前沿：同等成本下智能最高';
+          name.append(mark);
+        }
         name.append(node('strong', item.baseName));
         if (item.creator) name.append(node('span', item.creator, 'model-meta'));
-        const effort = aaEffortLabel(item);
-        if (effort) name.append(node('span', effort, item.isMax ? 'model-effort is-max' : 'model-effort'));
-        if (item.isEfficiencyFrontier) name.append(node('span', '效率前沿', 'model-frontier'));
-        row.append(name, node('span', item.intelligence == null ? '—' : item.intelligence.toFixed(1), 'model-num'), node('span', aaMoney(item.costPerTask), 'model-num'));
+        name.append(node('span', '查看详情 ↗', 'model-open'));
+        const intMetric = node('div', '', 'model-metric');
+        intMetric.append(node('span', item.intelligence == null ? '—' : item.intelligence.toFixed(1), 'model-num'));
+        const track = node('span', '', 'model-bar');
+        const fill = node('i');
+        fill.style.width = `${Math.max(2, Math.round(((item.intelligence ?? 0) / maxInt) * 100))}%`;
+        track.append(fill); intMetric.append(track);
+        const costMetric = node('div', '', 'model-metric');
+        costMetric.append(node('span', aaMoney(item.costPerTask), 'model-num'));
+        if (view === 'cost') {
+          const efficiency = item.costPerTask != null && item.intelligence ? item.costPerTask / item.intelligence : null;
+          const effMetric = node('div', '', 'model-metric');
+          effMetric.append(node('span', aaMoney(efficiency), 'model-num'), node('span', '每点智能', 'model-sub'));
+          row.append(name, costMetric, intMetric, effMetric);
+        } else {
+          row.append(name, intMetric, costMetric);
+        }
         row.addEventListener('click', () => open(item, true));
         return row;
       }));
-      if (!items.length) list.append(empty(view === 'cost' && !showAll ? '没有达到中位数门槛的模型，试试「显示全部」。' : '没有匹配的模型。'));
+      if (!items.length) list.append(empty(view === 'cost' && !showAll ? '没有达到中位数门槛的模型，关闭「只看主流模型」可查看全部。' : '没有匹配的模型。'));
       board.replaceChildren(head, list);
-      note.textContent = `${items.length} 个模型 · 智能中位数 ${median == null ? '—' : median.toFixed(1)}`;
+      note.textContent = view === 'cost'
+        ? `${items.length} 个模型 · ${showAll ? '全部' : `智能 ≥ ${median == null ? '—' : median.toFixed(1)}`}`
+        : `${data.stats.baseModels} 个模型 · ${data.stats.costModels} 个有成本`;
       if (items.length > AA_PREVIEW) {
         const toggle = node('button', expanded ? '收起 ▴' : `展开全部 ${items.length} 条 ▾`, 'ranking-more');
         toggle.addEventListener('click', () => { expanded = !expanded; render(); });
@@ -508,10 +586,13 @@ async function aaModels() {
 
     intelligenceButton.addEventListener('click', () => { view = 'intelligence'; expanded = false; render(); });
     costButton.addEventListener('click', () => { view = 'cost'; expanded = false; render(); });
-    maxButton.addEventListener('click', () => { onlyMax = !onlyMax; expanded = false; render(); });
     allButton.addEventListener('click', () => { showAll = !showAll; expanded = false; render(); });
     search.addEventListener('input', () => { query = search.value.trim().toLocaleLowerCase(); expanded = false; render(); });
-    controls?.replaceChildren(sub, search, maxButton, allButton, note);
+    controls?.replaceChildren(sub, search, allButton, note);
+    if (overview) {
+      overview.replaceChildren(aaOverview(data.items, (item) => open(item, true)));
+      overview.hidden = false;
+    }
 
     render();
     const wanted = new URLSearchParams(location.search).get('model');
