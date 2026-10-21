@@ -14,7 +14,7 @@ export interface LegalDocument { slug: LegalSlug; code: string; title: LegalText
 
 export const LEGAL = {
   effective: '2026-10-13',
-  updated: '2026-10-13',
+  updated: '2026-10-21',
   email: '3043927908@qq.com',
   site: 'https://icaiming.cn',
   copyrightStart: 2026,
@@ -379,6 +379,8 @@ const privacy = build('privacy', 'B',
           `${code('focus-best')} (localStorage): your best Focus Drill score;`],
         [`${code('ic-intro')}（sessionStorage）：本次会话中开屏动画是否已播放，关闭标签页后自动清除。`,
           `${code('ic-intro')} (sessionStorage): whether the intro animation has played in this session; cleared automatically when you close the tab.`],
+        [`${code('site-pet-visibility')}（localStorage）：站宠显示偏好；${code('site-pet-session')}（sessionStorage）：本标签页的固定动画候选池、可选请求预算、失败次数与冷却时间，关闭标签页后清除。站宠动画按需从本站本地媒体路由或配置的媒体资源域加载；请求可能包含 IP 地址、浏览器信息及访问时间，但不发送上述存储值。`,
+          `${code('site-pet-visibility')} (localStorage): pet visibility preference; ${code('site-pet-session')} (sessionStorage): the tab’s fixed animation pool, optional request budget, failure count and cooldown, cleared when the tab closes. Pet animations load on demand from our local media route or configured media domain. Those requests may include your IP address, browser information and access time, but do not send these storage values.`],
       ]),
       clause(
         '您可以通过浏览器设置管理或禁用 Cookie 与本地存储。禁用必要 Cookie 可能影响本站安全防护功能的正常运行；禁用本地存储后，您的偏好只在当前页面有效。',

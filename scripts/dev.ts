@@ -2,6 +2,10 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { resolve } from 'node:path';
 import chokidar from 'chokidar';
 import { root, contentRoot, persist, syncContent } from './content';
+import { seedPet } from './pet/local';
+
+// Build-time opt-in, inherited by Wrangler's build and subsequent Astro rebuilds.
+process.env.SITE_PET_LOCAL = '1';
 
 const astro = resolve(root, 'node_modules/astro/astro.js');
 const wrangler = resolve(root, 'node_modules/wrangler/bin/wrangler.js');
@@ -13,6 +17,7 @@ function build() {
   });
 }
 await syncContent();
+await seedPet();
 // The initial site build runs as wrangler's [build] command; build() below only handles later code changes.
 // LOCAL_DEV=true disables edge caching so local content changes appear on refresh.
 const server: ChildProcess = spawn(process.execPath, [wrangler, 'dev', '--persist-to', persist, '--var', 'LOCAL_DEV:true', '--show-interactive-dev-session=false'], {

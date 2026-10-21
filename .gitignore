@@ -3,6 +3,7 @@ dist/
 .astro/
 .env
 .env.*
+!.env.production
 .dev.vars*
 .wrangler/
 .playwright-cli/

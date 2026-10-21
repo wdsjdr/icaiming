@@ -507,8 +507,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, url: URL): Prom
   }
   if (path === '/api/media' && method === 'DELETE') {
     const rel = url.searchParams.get('path') ?? '';
-    store.assertMediaPath(rel);
-    const moved = await store.moveToTrash(contentRoot, rel);
+    const moved = await store.moveMediaToTrash(contentRoot, rel);
     sendJson(res, 200, { ok: true, trash: moved.path });
     return true;
   }

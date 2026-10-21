@@ -13,7 +13,7 @@ export const contentRoot = resolve(root, '../icaiming-content');
 // Wrangler appends /v3 to --persist-to; Miniflare needs the complete R2 path.
 export const persist = resolve(root, '.wrangler/state');
 const r2Path = resolve(persist, 'v3/r2');
-const contentTypes: Record<string, string> = { '.json': 'application/json', '.md': 'text/markdown', '.svg': 'image/svg+xml', '.pdf': 'application/pdf', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.avif': 'image/avif', '.ico': 'image/x-icon', '.zip': 'application/zip', '.7z': 'application/x-7z-compressed', '.txt': 'text/plain; charset=utf-8' };
+export const contentTypes: Record<string, string> = { '.json': 'application/json', '.md': 'text/markdown', '.svg': 'image/svg+xml', '.pdf': 'application/pdf', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.avif': 'image/avif', '.ico': 'image/x-icon', '.zip': 'application/zip', '.7z': 'application/x-7z-compressed', '.txt': 'text/plain; charset=utf-8', '.webm': 'video/webm' };
 // Aggregator-owned key prefixes: written by the Worker directly to R2, never touched by this importer.
 const protectedPrefixes = ['rankings/', 'misc/'];
 // Known production R2 target; override via env if needed.

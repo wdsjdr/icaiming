@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, rename, rm, rmdir, stat, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, readdir, rename, rm, rmdir, stat, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ZodTypeAny } from 'zod';
@@ -73,6 +73,15 @@ export function resolveUnder(root: string, rel: string): string {
 
 export function assertMediaPath(rel: string) {
   const segments = safeSegments(rel);
+  // DELETE uses canonical segments: slash/backslash are equivalent, ASCII case is
+  // ignored for the reserved namespace on every OS. Reject Windows trailing-dot
+  // aliases rather than silently trimming them (spaces, ADS ':' and '~' are already
+  // excluded by safeSegments). Do not depend on version/hash/id spelling here.
+  if (segments.some((segment) => segment.endsWith('.'))) throw new AdminError(400, '媒体删除路径不能包含以点结尾的别名。');
+  const [namespace, folder] = segments.map((segment) => segment.toLowerCase());
+  if (namespace === 'assets' && (segments.length === 1 || folder === 'pet')) {
+    throw new AdminError(403, '站宠版本化媒体请从受控内容仓库版本流程管理；保留旧版以便回滚，不能在媒体管理页删除。');
+  }
   const prefix = segments[0];
   if (prefix === 'assets' || prefix === 'downloads') return;
   if (prefix === 'resume' && segments.length === 2 && /\.pdf$/i.test(segments[1])) return;
@@ -202,6 +211,40 @@ export async function moveToTrash(root: string, rel: string) {
   await mkdir(destDir, { recursive: true });
   await rename(source, join(destDir, candidate));
   return { path: [...segments.slice(0, -1), candidate].join('/') };
+}
+
+// Media DELETE is a file operation, never a directory rename. Check each source
+// component with lstat so a junction/symlink cannot bypass namespace protection.
+// Keep the generic trash/restore helpers unchanged for the other admin workflows.
+export async function moveMediaToTrash(root: string, rel: string) {
+  assertMediaPath(rel);
+  const segments = safeSegments(rel);
+  let source = resolve(root);
+  for (let index = -1; index < segments.length; index++) {
+    if (index >= 0) source = join(source, segments[index]);
+    const info = await lstat(source).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') throw new AdminError(404, '媒体文件不存在。');
+      throw error;
+    });
+    if (info.isSymbolicLink()) throw new AdminError(400, '媒体删除路径不能包含符号链接或目录联接。');
+    const isTarget = index === segments.length - 1;
+    if (isTarget ? !info.isFile() : !info.isDirectory()) {
+      throw new AdminError(400, '媒体删除仅允许普通文件，不能删除目录。');
+    }
+  }
+  // Do not follow an existing link in the trash destination either.
+  let destination = trashRoot(root);
+  for (const segment of ['', ...segments.slice(0, -1)]) {
+    if (segment) destination = join(destination, segment);
+    const info = await lstat(destination).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    });
+    if (info && (!info.isDirectory() || info.isSymbolicLink())) {
+      throw new AdminError(400, '媒体回收站路径必须为普通目录，不能包含链接。');
+    }
+  }
+  return moveToTrash(root, rel);
 }
 
 export async function restoreFromTrash(root: string, rel: string) {

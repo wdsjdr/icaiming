@@ -9,7 +9,16 @@ const path = Astro.url.pathname.startsWith('/article-shell') ? '/blog' : Astro.u
     <nav class="desktop-nav" aria-label="主导航">{links.map((link) => <a href={link.href} aria-current={path.startsWith(link.href) ? 'page' : undefined}><span>{link.label}</span><small>{link.en}</small></a>)}</nav>
     <div class="actions">
       <button class="icon-button" data-theme-toggle aria-label="切换色彩模式"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.5" /><path d="M12 5a7 7 0 0 1 0 14Z" fill="currentColor" /></svg></button>
-      <details class="settings"><summary aria-label="外观设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--bg)"/><circle cx="15" cy="17" r="3" fill="var(--bg)"/></svg></summary><div class="settings-panel"><p class="eyebrow">MAKE IT YOURS</p><label>色彩模式<select data-mode-select><option value="system">跟随系统</option><option value="light">亮色</option><option value="dark">暗色</option></select></label><label>外观皮肤<select data-skin-select><option value="default">IC · 分区默认</option><option value="terminal">Terminal · 终端</option><option value="newspaper">Newspaper · 报刊</option></select></label><label class="motion-label"><input type="checkbox" data-motion-toggle checked /> 开启动画</label><small class="muted">系统减少动画设置始终优先。</small></div></details>
+      <details class="settings" name="header-settings"><summary aria-label="外观设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--bg)"/><circle cx="15" cy="17" r="3" fill="var(--bg)"/></svg></summary><div class="settings-panel"><p class="eyebrow">MAKE IT YOURS</p><label>色彩模式<select data-mode-select><option value="system">跟随系统</option><option value="light">亮色</option><option value="dark">暗色</option></select></label><label>外观皮肤<select data-skin-select><option value="default">IC · 分区默认</option><option value="terminal">Terminal · 终端</option><option value="newspaper">Newspaper · 报刊</option></select></label><label class="motion-label"><input type="checkbox" data-motion-toggle checked /> 开启动画</label><small class="muted">系统减少动画设置始终优先。</small>
+        <fieldset class="pet-settings"><legend>站宠</legend>
+          <label class="motion-label"><input type="checkbox" data-pet-visible disabled /> 显示站宠</label>
+          <label class="motion-label"><input type="checkbox" data-pet-autowalk disabled /> 自动走动</label>
+          <label class="pet-size">角色大小 <output data-pet-size-value for="pet-size">120 px</output><input id="pet-size" data-pet-size type="range" min="80" max="180" step="4" value="120" disabled aria-describedby="pet-settings-help" /></label>
+          <button type="button" data-pet-reset disabled>重置位置</button>
+          <small id="pet-settings-help" data-pet-settings-status>正在读取站宠配置。</small>
+          <small>素材来源 <a href="https://github.com/PC2005-cloud/dsh-pet" target="_blank" rel="noopener noreferrer">PC2005-cloud / dsh-pet ↗</a></small>
+        </fieldset>
+      </div></details>
       <button class="icon-button menu-toggle" data-menu-toggle aria-label="主导航菜单" aria-expanded="false" aria-controls="mobile-nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 8h16M4 16h16"/></svg></button>
     </div>
   </div>
@@ -25,6 +34,13 @@ const path = Astro.url.pathname.startsWith('/article-shell') ? '/blog' : Astro.u
   .actions { display: flex; align-items: center; gap: 1px; }.icon-button, summary { width: 44px; height: 44px; border: 0; display: grid; place-items: center; border-radius: var(--radius); background: transparent; cursor: pointer; }.icon-button svg, summary svg { width: 22px; height: 22px; }.icon-button:hover, summary:hover { background: var(--soft); }
   summary { list-style: none; } summary::-webkit-details-marker { display: none; }.settings { position: relative; }.settings-panel { position: absolute; top: 54px; right: 0; width: 265px; padding: 24px; border: 1px solid var(--line); background: var(--surface); box-shadow: 0 16px 50px #0002; border-radius: var(--radius); }.settings-panel label { display: grid; gap: 7px; font-size: 13px; margin-bottom: 16px; }.settings-panel .motion-label { display: flex; align-items: center; gap: 10px; margin: 0; min-height: 44px; }.motion-label input { min-height: auto; width: 16px; height: 16px; accent-color: var(--accent); }.settings-panel small { font-size: 11px; }
   .mobile-nav, .menu-toggle { display: none; }
+  .settings-panel { max-height: calc(100dvh - 148px); overflow-y: auto; overscroll-behavior: contain; width: min(300px, calc(100vw - 32px)); }
+  .pet-settings { border: 0; border-top: 1px solid var(--line); padding: 16px 0 0; margin: 20px 0 0; min-width: 0; }
+  .pet-settings legend { padding: 0 8px 0 0; font-size: 13px; color: var(--ink); }
+  .pet-settings small { display: block; margin-top: 12px; line-height: 1.6; }.pet-settings a { text-decoration: underline; overflow-wrap: anywhere; }
+  .pet-settings .pet-size { grid-template-columns: 1fr auto; margin-block: 12px; }.pet-size input { grid-column: 1 / -1; width: 100%; min-height: 32px; accent-color: var(--accent); }
+  .pet-settings button { min-height: 44px; padding: 8px 12px; background: var(--soft); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; }
+  .pet-settings :disabled { opacity: .5; cursor: not-allowed; }
   @media(max-width: 900px) { .desktop-nav { gap: 20px; }.desktop-nav small { display: none; } }
   @media(max-width: 799px) { .header-inner { min-height: 72px; gap: 12px; }.desktop-nav { display: none; }.menu-toggle { display: grid; }.mobile-nav.is-open { display: grid; padding-bottom: 20px; }.mobile-nav a { padding: 14px 0; border-top: 1px solid var(--line); display: flex; justify-content: space-between; }.mobile-nav span { font: 11px var(--font-mono); color: var(--muted); }.settings-panel { right: -44px; }.brand { font-size: 20px; } }
 </style>

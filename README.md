@@ -1,5 +1,22 @@
 # IC Aiming
 
+## 本地站宠（按需视频）
+
+发布安全：本次仅按七 key 定点上传，不运行全桶 `content:publish`。未来完整内容发布必须保留全部现有内容与旧版站宠文件；不能从七文件子目录镜像发布，以免删除其他受管对象。旧版对象和完整内容源均须保留，以支持回滚。
+
+不读取或探测私人对象；资源域的桶公开范围须由所有者独立审核，CORS 不是访问控制。
+
+- 本地启动、已验收范围与正式上线分阶段操作见 [站宠工作流](docs/site-pet.md)；上游完整署名：PC2005-cloud / dsh-pet 0.3.7，**https://github.com/PC2005-cloud/dsh-pet**（许可全文见下方 notices）。
+- `pnpm dev` 会在内容同步后校验并种入 **7 段白名单 WebM（3,099,076 bytes）** 到本地 Miniflare R2，再显式传递 `SITE_PET_LOCAL=1` 给本地构建。不会访问生产 R2、读取上传密钥或把视频复制到 `public/` / `dist/`。独立清单为 `_local/pet-manifest.json`，不进入内容导入器清单。
+- 源目录保持为 `../资源/dsh-pet-0.3.7/dsh-pet/assets/webm`。`pnpm pet:prepare` 可单独准备本地资源；`pnpm dev:ui` 用 Astro 的精确白名单中间件直接读取相同七段源文件，无需额外媒体服务。
+- 桌面细指针宽屏在页面 load + 空闲延后开启；手机、平板从 Header 的「站宠」或页脚「显示站宠」手动开启。关闭会记住；减少动画、入场动画、后台会暂停/阻止请求。Safari 默认静态降级；透明视频仍需实际设备验收。
+- 核心 idle/walk 共 1,038,339 bytes，不计可选预算。可选池每会话固定自动 1 段、点击 2 段，首次点击不预取。每次真正 fetch 前预占原始预算：自动 3 MiB、总可选 8 MiB，失败/取消不退；仅页内 blob 命中免扣，HTTP 缓存命中仍扣。这是请求计账，不是实际传输流量硬上限。
+- 普通 `pnpm build` 由 Astro production 模式加载已纳入版本控制的 `.env.production`，默认启用站宠，公开 base 固定为 **`https://assets.icaiming.cn/assets/pet/v0.3.7-web-2`**（直连不含 `/media/`）。该文件只有一个公开 URL，不含密钥；其他 `.env.*` 仍被忽略，不复制实际开发环境。进程环境的 `PUBLIC_PET_ASSET_BASE_URL` 优先，可有意覆盖；Cloudflare CI **不得设置 `SITE_PET_LOCAL=1`**，它仅用于 `pnpm dev` 的本地生产构建。未核实控制台环境，不声称 dashboard 已设置；Worker `[vars]` 不是 Astro 构建环境。构建仍校验 HTTPS/域名/版本路径，按 `<base>/<sha256>/<id>.webm` 引用，拒绝 localhost、IP、r2.dev。复用单桶 `icaiming-content`，不新增 binding。直连必须由对象自身提供 `video/webm` 与一年 immutable，并允许 Origin `https://icaiming.cn` 的 GET/HEAD CORS，不能依赖 Worker 纠正头。公开域可暴露桶内已知 key，不限 pet；CORS 不是鉴权，公开范围须所有者审核。本地集成不修改凭据或云配置，不上传或部署，不把本地验证当作真实 CORS 验收。
+- `pnpm exec tsx scripts/pet/stage.ts` 逐项校验源文件和已有目标，仅向完整 `../icaiming-content/assets/pet/v0.3.7-web-2/<sha256>/<id>.webm` 复制七段，不覆盖不同内容、不改 manifest、不操作远端。本次后续发布只定点 PUT 七 key；未来完整 `content:publish` 必须保留全部现有内容和所有回滚版本，**绝不能把仅七个文件的不完整目录当作内容发布源**。整个 `assets/pet` 树禁止从管理页删除（忽略 ASCII 大小写），所有目录/链接删除也拒绝；仍允许列表/预览、普通媒体文件删除及回收站恢复。精确白名单 URL 的 Worker GET/HEAD 返回 `video/webm`、长度/ETag 和一年 immutable（本地 no-store）；直连绕过 Worker，须单独验证对象元数据和 CORS，均不等于已验证边缘 CDN 缓存。
+- 定向验证：`pnpm exec tsx --test tests/pet*.test.ts`、`pnpm check`、`pnpm build`。完整本地预览入口仍是 `pnpm dev`，无需运行会修改内容的 `test:local`。
+
+动画出处（介绍、展示及分发均须保留）：**https://github.com/PC2005-cloud/dsh-pet** · Copyright (c) 2026 PC2005-cloud。代码 MIT；动画等素材允许开源使用、禁止商用。同人二创作品，与 DeepSeek 官方无关，非合作、非商用；形象与同人二创 CC BY-NC-SA 4.0 声明不改变代码或上游素材许可。三位原型作者署名、主页链接、完整许可与上线前范围确认见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，展示及分发时一并保留。
+
 IC = Ice Cold / “I see”。Aiming = 瞄准，也是名字的一部分。
 
 个人站本地版本：Astro + TypeScript + Tailwind/CSS 变量 + Nanostores，Pages Functions 读取本地 R2。当前阶段以本地完善为目标。
@@ -127,6 +144,8 @@ docs/                  实施计划、品牌规范和验收记录
 `article-shell` 由 Astro 构建，Worker 通过 `ASSETS` 绑定取出模板，使用 HTMLRewriter 注入正文和 meta。外部直接访问模板返回 404。浏览器包不包含 YAML 解析或服务端 Markdown 渲染库。
 
 ## 部署
+
+本次站宠沿用 **GitHub `wdsjdr/icaiming` 的 `main` → Cloudflare Workers Builds**。先独立审核干净的 pet-only 分支及本地测试/构建，待所有者批准后再提交并推送/合并到 `main`；本地集成阶段不执行 commit、push 或部署。不新建 standalone/olderwebsite 站点，也不手动运行 Wrangler deploy。公开生产 base 随 `.env.production` 一起进入 GitHub，不依赖未经核实的 dashboard 变量；CI 仍须确认无本地标志或意外进程变量覆盖。具体审计和回滚见 [站宠工作流](docs/site-pet.md#5-阶段三生产构建审计与站点发布)。
 
 站点是一个 Cloudflare Worker（`wrangler.toml`：`main` 为 `src/worker/index.ts`，`[assets]` 指向 `dist`）。Workers Builds 连接本仓库 `main` 分支：每次推送时执行 `wrangler.toml` 中的 `[build]`（`pnpm build`），再部署。
 

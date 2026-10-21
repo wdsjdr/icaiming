@@ -1,5 +1,6 @@
 import { cacheControl, errorResponse, HttpError } from '../../server/r2';
 import { decodeParam, type Handler } from '../shared';
+import { isPetMediaKey } from '../../lib/pet/media';
 
 export const media: Handler = async (request, env, params) => {
   try {
@@ -7,15 +8,31 @@ export const media: Handler = async (request, env, params) => {
     if (parts.some((part) => !part || part.startsWith('.') || /[\\\x00]/.test(part))) throw new HttpError(404, '资源不存在');
     const key = parts.join('/');
     if (!key.startsWith('assets/') && !key.startsWith('downloads/') && !/^resume\/[\w-]+\.pdf$/.test(key)) throw new HttpError(404, '资源不存在');
-    const object = await env.CONTENT_BUCKET.get(key);
+    const isPet = isPetMediaKey(key);
+    const isHead = request.method === 'HEAD';
+    const bodyObject = isHead ? null : await env.CONTENT_BUCKET.get(key);
+    const object = isHead ? await env.CONTENT_BUCKET.head(key) : bodyObject;
     if (!object) throw new HttpError(404, '资源不存在');
     const headers = new Headers({ 'Cache-Control': cacheControl(env), 'X-Content-Type-Options': 'nosniff' });
     object.writeHttpMetadata(headers);
+    if (isPet) {
+      // Stored metadata may predate the MIME fix. These headers must win.
+      headers.set('Content-Type', 'video/webm');
+      headers.set('Cache-Control', env.LOCAL_DEV === 'true' ? 'no-store' : 'public, max-age=31536000, immutable');
+      headers.set('Content-Length', String(object.size));
+      headers.set('ETag', object.httpEtag);
+      const ifNoneMatch = request.headers.get('If-None-Match');
+      if (ifNoneMatch && etagMatches(ifNoneMatch, object.httpEtag)) {
+        if (bodyObject) await bodyObject.body.cancel();
+        headers.delete('Content-Length');
+        return new Response(null, { status: 304, headers });
+      }
+    }
     headers.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
     const forceDownload = new URL(request.url).searchParams.has('download');
     if (forceDownload || key.startsWith('downloads/')) headers.set('Content-Disposition', `attachment; filename="${key.split('/').pop() ?? 'download'}"`);
     else if (key.endsWith('.pdf')) headers.set('Content-Disposition', 'attachment; filename="IC-Aiming-resume.pdf"');
-    return new Response(object.body, { headers });
+    return new Response(bodyObject?.body ?? null, { headers });
   } catch (error) { return errorResponse(error); }
 };
 
