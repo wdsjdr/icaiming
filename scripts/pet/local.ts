@@ -12,6 +12,9 @@ const sourceRoot = resolve(root, '../资源/dsh-pet-0.3.7/dsh-pet/assets/webm');
 const sourceNames: Record<AssetId, string> = {
   idle: '待机呼吸休闲.webm', walk: '螃蟹走路.webm', stretch: '超大伸懒腰.webm',
   yawn: '哈欠连天.webm', wave: '点击回应-元气挥手.webm', sulk: '点击回应-傲娇生气.webm', laugh: '点击回应-挠痒咯咯笑.webm',
+  crouch: '原地重力下蹲压缩.webm', startle: '被吓一跳.webm', tailSweep: '用鲸鱼尾巴拍打地面.webm',
+  curtsy: '女仆屈膝礼仪.webm', code: '写代码.webm', cat: '撸猫.webm',
+  bubbles: '鲸鱼吐泡泡特效.webm', kickShuttle: '踢毽子.webm',
 };
 export const localPrefix = '/media/assets/pet/local/';
 export function localAssetId(path: string): AssetId | undefined {

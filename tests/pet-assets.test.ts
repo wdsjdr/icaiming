@@ -4,15 +4,15 @@ import { assets, assetPath, type AssetId } from '../src/lib/pet/assets';
 import { petConfig } from '../src/lib/pet/config';
 import { localAssetId, localPrefix, readAsset, petLocalIntegration } from '../scripts/pet/local';
 
-test('seven audited allowlisted sources match bytes and SHA256', async () => {
-  assert.equal(Object.keys(assets).length, 7);
+test('fifteen audited allowlisted sources match bytes and SHA256', async () => {
+  assert.equal(Object.keys(assets).length, 15);
   let bytes = 0;
   for (const id of Object.keys(assets) as AssetId[]) {
     assert.equal((await readAsset(id)).length, assets[id].bytes); bytes += assets[id].bytes;
-    assert.match(assetPath(id), /^[a-f0-9]{64}\/[a-z]+\.webm$/);
+    assert.match(assetPath(id), /^[a-f0-9]{64}\/[A-Za-z]+\.webm$/);
     assert.equal(localAssetId(`${localPrefix}${assetPath(id)}`), id);
   }
-  assert.equal(bytes, 3099076); assert.equal(assets.idle.bytes + assets.walk.bytes, 1038339);
+  assert.equal(bytes, 6030322); assert.equal(assets.idle.bytes + assets.walk.bytes, 1038339);
 });
 test('local media route uses exact allowlist, not filesystem/path suffix matching', () => {
   for (const path of [localPrefix, `${localPrefix}../idle.webm`, `${localPrefix}%2e%2e/idle.webm`, `${localPrefix}${assetPath('idle')}/extra`, `${localPrefix}${assetPath('idle').replace('idle', 'walk')}`, `/media/assets/other/${assetPath('idle')}`]) {
@@ -30,7 +30,7 @@ test('only explicit local build flag or UI dev produces local immutable URLs', (
     const config = petConfig(options);
     assert.equal(config.enabled, true);
     assert.equal(config.urls.idle, `${localPrefix}${assetPath('idle')}`);
-    assert.equal(Object.keys(config.urls).length, 7);
+    assert.equal(Object.keys(config.urls).length, 15);
     assert.ok(!JSON.stringify(config).includes('资源'));
   }
 });

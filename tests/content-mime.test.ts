@@ -11,12 +11,12 @@ test('content importer declares WebM MIME instead of falling back to octet-strea
   assert.equal(contentTypes['.unrecognised'], undefined);
 });
 
-test('complete content source retains existing content and seven exact versioned clips', async () => {
+test('complete content source retains existing content and fifteen exact versioned clips', async () => {
   const objects = await prepareContent(); // Read-only: no sync, credentials or manifest writes.
   for (const key of ['site/profile.json', 'site/home.json', 'resources/index.json', 'projects/index.json', 'downloads/index.json', 'resume/resume.json', 'posts/a-small-garden.md']) {
     assert.ok(objects.has(key), key);
   }
-  assert.equal([...objects.keys()].filter((key) => key.startsWith(petMediaPrefix)).length, 7);
+  assert.equal([...objects.keys()].filter((key) => key.startsWith(petMediaPrefix)).length, 15);
   for (const id of Object.keys(assets) as AssetId[]) {
     const body = objects.get(`${petMediaPrefix}${assetPath(id)}`);
     assert.ok(Buffer.isBuffer(body));
