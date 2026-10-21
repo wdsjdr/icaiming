@@ -132,6 +132,19 @@ export function parsePost(raw: string, slug: string) {
   return { meta: { ...meta, slug, readingMinutes } satisfies Post, body };
 }
 
+// Post dates are calendar days in the site time zone (Asia/Shanghai, UTC+8), not UTC:
+// a post dated today in China should go live at Beijing midnight rather than at UTC midnight.
+const siteDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+});
+
+function siteDate(now: Date) {
+  // Build the YYYY-MM-DD string from parts so the result never depends on locale output ordering.
+  const parts: Partial<Record<Intl.DateTimeFormatPartTypes, string>> = {};
+  for (const part of siteDateFormatter.formatToParts(now)) parts[part.type] = part.value;
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
 export function isPublished(post: Pick<Post, 'draft' | 'date'>, now = new Date()) {
-  return !post.draft && post.date <= now.toISOString().slice(0, 10);
+  return !post.draft && post.date <= siteDate(now);
 }

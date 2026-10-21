@@ -17,11 +17,21 @@ test('frontmatter supports CRLF and preserves the body; invalid dates and paths 
   assert.throws(() => parsePost('no frontmatter', 'missing-meta'));
 });
 
-test('drafts and future articles are not published; scheduled date is inclusive in UTC', () => {
+test('drafts and future articles are not published; scheduled date is inclusive in the site time zone', () => {
   const now = new Date('2026-10-10T12:00:00Z');
   assert.equal(isPublished({ draft: true, date: '2026-01-01' }, now), false);
   assert.equal(isPublished({ draft: false, date: '2026-10-11' }, now), false);
   assert.equal(isPublished({ draft: false, date: '2026-10-10' }, now), true);
+});
+
+test('publication flips at Beijing midnight, not UTC midnight', () => {
+  // 2026-10-21T17:30:00Z is already 2026-10-22 01:30 in Asia/Shanghai (UTC+8).
+  const afterBeijingMidnight = new Date('2026-10-21T17:30:00Z');
+  assert.equal(isPublished({ draft: false, date: '2026-10-22' }, afterBeijingMidnight), true);
+  assert.equal(isPublished({ draft: false, date: '2026-10-23' }, afterBeijingMidnight), false);
+  // 2026-10-21T15:30:00Z is 2026-10-21 23:30 in Asia/Shanghai: still the previous Beijing day.
+  const beforeBeijingMidnight = new Date('2026-10-21T15:30:00Z');
+  assert.equal(isPublished({ draft: false, date: '2026-10-22' }, beforeBeijingMidnight), false);
 });
 
 test('resource links reject executable and non-web protocols', () => {
