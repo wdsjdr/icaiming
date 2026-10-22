@@ -44,7 +44,7 @@ const config = petConfig({ local: process.env.SITE_PET_LOCAL === '1', ui: import
   .pet-drag svg { width: 16px; height: 16px; filter: drop-shadow(0 0 1px var(--surface)); }
   .pet-collapse { top: calc(-280px * var(--pet-scale) + 48px); border-radius: 50%; background: var(--surface); border: 1px solid var(--line); cursor: pointer; touch-action: manipulation; }
   .pet-collapse svg { width: 22px; height: 22px; }
-  .pet-info-btn { left: -12px; top: 4px; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 600 12px/1 ui-sans-serif, system-ui, sans-serif; display: grid; place-items: center; pointer-events: auto; cursor: pointer; padding: 0; }
+  .pet-info-btn { left: calc(var(--pet-ball-size, 48px) / 2 + 8px); top: calc(-0.5 * var(--pet-ball-size, 48px) - 12px); width: 24px; height: 24px; min-height: 24px; aspect-ratio: 1; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 600 12px/1 ui-sans-serif, system-ui, sans-serif; display: grid; place-items: center; pointer-events: auto; cursor: pointer; padding: 0; }
   .pet-bubble { position: absolute; width: min(260px, calc(100vw - 16px)); background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 24px rgb(0 0 0 / .12); padding: 12px 32px 12px 12px; font-size: 12px; line-height: 1.55; pointer-events: auto; z-index: 5; }
   .pet-bubble p { margin: 0 0 8px; }
   .pet-bubble p:last-of-type { margin-bottom: 0; }

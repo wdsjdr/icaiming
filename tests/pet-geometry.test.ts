@@ -81,15 +81,19 @@ test('shared feet anchor, reference actor height, canvas and toolbar bounds', ()
     assert.ok(small.bounds.maxY + small.scale * 5 <= 500 - 34 - 12);
   }
 });
-test('collapsed bounds reserve the info button space while the ball stays reachable', () => {
+test('collapsed bounds reserve the info button space to the right of the ball', () => {
   for (const [width, height] of [[390, 120], [390, 844], [1200, 800], [72, 240], [24, 40]]) {
     const v = { ...viewport, width, height };
     const g = geometry(120, false, v);
     const anchor = clampAnchor({ x: 9999, y: 9999 }, g.bounds);
+    const label = `${width}x${height}`;
     assert.equal(g.expanded, false);
-    assert.ok(anchor.y - g.ballSize >= v.top + v.safeTop, `ball top stays visible at ${width}x${height}`);
-    assert.ok(anchor.y <= v.top + height - v.safeBottom);
-    if (v.height - v.safeTop - v.safeBottom - g.ballSize >= 30) assert.ok(anchor.y + 30 <= v.top + height - v.safeBottom, `info button fits under the ball at ${width}x${height}`);
+    assert.ok(anchor.x - g.ballSize / 2 >= v.left + v.safeLeft, `ball left stays visible at ${label}`);
+    assert.ok(anchor.x + g.ballSize / 2 <= v.left + width - v.safeRight, `ball right stays visible at ${label}`);
+    assert.ok(anchor.y - g.ballSize >= v.top + v.safeTop, `ball top stays visible at ${label}`);
+    assert.ok(anchor.y <= v.top + height - v.safeBottom, `ball bottom stays visible at ${label}`);
+    const availableWidth = width - v.safeLeft - v.safeRight;
+    if (availableWidth >= g.ballSize + 32) assert.ok(anchor.x + g.ballSize / 2 + 32 <= v.left + width - v.safeRight + 0.001, `info button fits right of the ball at ${label}`);
   }
 });
 test('walk plan prefers room, scales upstream distance, never runs against a wall', () => {
