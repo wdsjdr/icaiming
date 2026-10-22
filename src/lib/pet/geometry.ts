@@ -26,14 +26,18 @@ export function geometry(height: number, expanded: boolean, viewport: Viewport) 
   // Below 48px even the ball must shrink; never invent an offscreen ordered bound.
   const ballSize = Math.min(48, availableWidth, availableHeight);
   if (!expanded) {
+    // The info button sits just under the ball, so reserve its height while the ball stays reachable.
+    const infoSpace = 30;
+    const slack = Math.max(0, availableHeight - ballSize);
+    const reserve = Math.min(infoSpace, slack);
     const mx = Math.min(margin, (availableWidth - ballSize) / 2);
-    const my = Math.min(margin, (availableHeight - ballSize) / 2);
-    const minTop = Math.min(Math.max(96, viewport.safeTop + my), viewport.height - viewport.safeBottom - my - ballSize);
+    const my = Math.min(margin, Math.max(0, (slack - reserve) / 2));
+    const minTop = Math.min(Math.max(96, viewport.safeTop + my), viewport.height - viewport.safeBottom - my - ballSize - reserve);
     bounds = {
       minX: viewport.left + viewport.safeLeft + mx + ballSize / 2,
       maxX: viewport.left + viewport.width - viewport.safeRight - mx - ballSize / 2,
-      minY: viewport.top + minTop + ballSize,
-      maxY: viewport.top + viewport.height - viewport.safeBottom - my,
+      minY: viewport.top + Math.max(viewport.safeTop, minTop) + ballSize,
+      maxY: viewport.top + viewport.height - viewport.safeBottom - my - reserve,
     };
   }
   return { expanded, ballSize, scale, actorHeight, canvasWidth: 640 * scale, canvasHeight: 360 * scale, bounds };

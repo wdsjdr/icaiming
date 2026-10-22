@@ -50,18 +50,18 @@ export function initPet() {
   const reset = document.querySelector<HTMLButtonElement>('[data-pet-reset]');
   const settingsStatus = document.querySelector<HTMLElement>('[data-pet-settings-status]');
   [settings, autoWalk, size, reset].forEach((control) => { if (control) control.disabled = !config.enabled; });
-  if (settingsStatus) settingsStatus.textContent = config.enabled ? '拖动悬浮球或右上角小三角调整位置；聚焦球或三角后方向键移动，Escape 收起。' : '站宠视频未配置，当前仅保留来源说明。';
+  if (settingsStatus) settingsStatus.textContent = config.enabled ? '拖动悬浮球或右上角小三角调整位置；聚焦球或三角后方向键移动，Escape 收起。' : '站宠素材未配置。';
   if (!config.enabled) return;
   const stage = host.querySelector<HTMLElement>('[data-pet-stage]')!;
-  const toggle = host.querySelector<HTMLButtonElement>('[data-pet-toggle]')!;
-  const toggles = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-pet-toggle]'));
-  const close = host.querySelector<HTMLButtonElement>('[data-pet-close]')!;
   const ball = host.querySelector<HTMLButtonElement>('[data-pet-ball]')!;
   const dragHandle = host.querySelector<HTMLButtonElement>('[data-pet-drag]')!;
   const collapse = host.querySelector<HTMLButtonElement>('[data-pet-collapse]')!;
   const touch = host.querySelector<HTMLButtonElement>('[data-pet-touch]')!;
   const placeholder = host.querySelector<HTMLElement>('[data-pet-placeholder]')!;
   const status = host.querySelector<HTMLElement>('[data-pet-status]')!;
+  const infoBtn = host.querySelector<HTMLButtonElement>('[data-pet-info]');
+  const bubble = host.querySelector<HTMLElement>('[data-pet-bubble]');
+  const bubbleClose = host.querySelector<HTMLButtonElement>('[data-pet-bubble-close]');
   const videos = Array.from(host.querySelectorAll<HTMLVideoElement>('[data-pet-video]'));
   const slots = videos.map(() => ({ owner: null as object | null, wantsPlayback: false }));
   function claimSlot(index: number) {
@@ -101,7 +101,6 @@ export function initPet() {
   let lastInteraction = Date.now();
   const urls = new Map<AssetId, string>();
   const failed = new Set<AssetId>();
-  toggles.forEach((button) => button.hidden = false);
 
   function state(value: string, message = '') { host!.dataset.state = value; status.textContent = message; }
   function permitted() {
@@ -117,6 +116,24 @@ export function initPet() {
       safeTop: parseFloat(css?.paddingTop ?? '') || 0, safeBottom: parseFloat(css?.paddingBottom ?? '') || 0,
       safeLeft: parseFloat(css?.paddingLeft ?? '') || 0, safeRight: parseFloat(css?.paddingRight ?? '') || 0 };
   }
+  function setBubble(open: boolean) {
+    infoBtn?.setAttribute('aria-expanded', String(open));
+    if (!bubble) return;
+    bubble.hidden = !open;
+    if (!open) return;
+    placeBubble();
+    bubbleClose?.focus({ preventScroll: true });
+  }
+  function placeBubble() {
+    if (!bubble || bubble.hidden || !ball) return;
+    if (typeof bubble.getBoundingClientRect !== 'function' || typeof ball.getBoundingClientRect !== 'function') return;
+    const box = bubble.getBoundingClientRect(), target = ball.getBoundingClientRect();
+    const origin = typeof stage.getBoundingClientRect === 'function' ? stage.getBoundingClientRect() : { left: 0, top: 0 };
+    const edge = 8, maxLeft = Math.max(edge, innerWidth - box.width - edge);
+    const left = Math.min(Math.max(target.left + target.width / 2 - box.width / 2, edge), maxLeft);
+    const top = Math.max(edge, target.top - box.height - edge);
+    bubble.style.left = `${left - origin.left}px`; bubble.style.top = `${top - origin.top}px`;
+  }
   function position() {
     const g = presentation();
     anchor = clampAnchor(anchor, g.bounds);
@@ -125,6 +142,7 @@ export function initPet() {
     stage.style.setProperty('--pet-canvas-width', `${g.canvasWidth}px`);
     stage.style.setProperty('--pet-canvas-height', `${g.canvasHeight}px`);
     stage.style.setProperty('--pet-ball-size', `${g.ballSize}px`);
+    if (bubble && !bubble.hidden) placeBubble();
   }
   function presentation() { return geometry(prefs.height, prefs.mode === 'expanded', viewport()); }
   function displayedMode(): PetMode { return prefs.mode === 'hidden' ? 'hidden' : presentation().expanded ? 'expanded' : 'collapsed'; }
@@ -331,11 +349,11 @@ export function initPet() {
     if (autoWalk) autoWalk.checked = prefs.autoWalk;
     if (size) size.value = String(prefs.height);
     if (sizeValue) sizeValue.textContent = `${prefs.height} px`;
-    toggles.forEach((button) => { button.setAttribute('aria-pressed', String(enabled)); button.setAttribute('aria-label', enabled ? '关闭站宠' : '显示站宠'); });
-    toggle.textContent = enabled ? '关闭站宠' : '显示站宠';
     stage.hidden = !enabled || pageHidden || document.hidden || root.dataset.intro === 'play';
     ball.hidden = mode !== 'collapsed'; touch.hidden = dragHandle.hidden = collapse.hidden = mode !== 'expanded';
-    if (!enabled) { cancelDrag(); stop(true); walk = null; state('closed'); return; }
+    if (infoBtn) infoBtn.hidden = mode !== 'collapsed';
+    if (mode !== 'collapsed') setBubble(false);
+    if (!enabled) { setBubble(false); if (infoBtn) infoBtn.hidden = true; cancelDrag(); stop(true); walk = null; state('closed'); return; }
     position();
     if (!permitted()) {
       cancelDrag();
@@ -377,15 +395,26 @@ export function initPet() {
     setMode(value ? 'expanded' : 'hidden');
   }
   function setMode(mode: PetMode) {
+    setBubble(false);
     cancelDrag(); enabled = mode !== 'hidden'; prefs.mode = mode; manual = enabled; remembered = true;
     if (mode !== 'expanded') { stop(mode === 'hidden'); discardWalk(); }
     if (mode === 'expanded' && coreFailures < 2) { broken = false; failed.delete('idle'); failed.delete('walk'); }
     reconcile(); persist();
   }
-  toggles.forEach((button) => button.addEventListener('click', () => setEnabled(!enabled)));
-  close.addEventListener('click', () => { setEnabled(false); toggle.focus({ preventScroll: true }); });
   ball.addEventListener('click', (event) => { if (suppressCompatibilityClick(event, ball)) return; if (stage.hidden || displayedMode() !== 'collapsed') return; setMode('expanded'); if (!touch.hidden) touch.focus({ preventScroll: true }); });
   collapse.addEventListener('click', () => { setMode('collapsed'); ball.focus({ preventScroll: true }); });
+  infoBtn?.addEventListener('click', () => { if (stage.hidden || displayedMode() !== 'collapsed') return; setBubble(Boolean(bubble?.hidden)); });
+  bubbleClose?.addEventListener('click', () => { setBubble(false); infoBtn?.focus({ preventScroll: true }); });
+  document.addEventListener('pointerdown', (event) => {
+    if (!bubble || bubble.hidden) return;
+    const inside = (element: HTMLElement | null | undefined) => Boolean(element && typeof element.contains === 'function' && element.contains(event.target as Node));
+    if (inside(bubble) || inside(infoBtn)) return;
+    setBubble(false);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !bubble || bubble.hidden) return;
+    event.preventDefault(); setBubble(false); infoBtn?.focus({ preventScroll: true });
+  });
   settings?.addEventListener('change', () => setEnabled(settings.checked));
   autoWalk?.addEventListener('change', () => { prefs.autoWalk = autoWalk.checked; stop(false); discardWalk(); reconcile(); persist(); });
   size?.addEventListener('input', () => {
@@ -402,6 +431,7 @@ export function initPet() {
   [ball, dragHandle].forEach((element) => {
     element.addEventListener('pointerdown', (event) => {
       if (stage.hidden || element.hidden || !event.isPrimary || event.button !== 0 || drag || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      setBubble(false);
       suppressedGesture = null;
       drag = { id: event.pointerId, element, start: { x: event.clientX, y: event.clientY }, anchor: { ...anchor }, moved: false };
       element.setPointerCapture(event.pointerId);
@@ -461,6 +491,7 @@ export function initPet() {
   connection?.addEventListener?.('change', () => { clearTimeout(autoTimer); scheduleAuto(); });
   const resize = () => { cancelDrag(); stop(false); discardWalk(); position(); reconcile(); };
   window.addEventListener('resize', resize, { passive: true });
+  window.addEventListener('resize', placeBubble, { passive: true });
   window.visualViewport?.addEventListener('resize', resize, { passive: true });
   window.visualViewport?.addEventListener('scroll', resize, { passive: true });
   window.addEventListener('pagehide', () => {

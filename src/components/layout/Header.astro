@@ -17,6 +17,10 @@ const path = Astro.url.pathname.startsWith('/article-shell') ? '/blog' : Astro.u
           <button type="button" data-pet-reset disabled>重置位置</button>
           <small id="pet-settings-help" data-pet-settings-status>正在读取站宠配置。</small>
           <small>素材来源 <a href="https://github.com/PC2005-cloud/dsh-pet" target="_blank" rel="noopener noreferrer">PC2005-cloud / dsh-pet ↗</a></small>
+          <details class="pet-notice"><summary>站宠说明与来源</summary>
+            <p>形象原型 <a href="https://space.bilibili.com/4456176" target="_blank" rel="noopener noreferrer">@上善无形</a>、<a href="https://space.bilibili.com/4168597" target="_blank" rel="noopener noreferrer">@ZipZipPipe</a>、<a href="https://space.bilibili.com/23315338" target="_blank" rel="noopener noreferrer">@这个刀子真甜</a>；同人二创，遵循 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 4.0</a>；与 DeepSeek 官方无关，非合作／非商用。</p>
+            <p>动画与同源静态帧来自 PC2005-cloud / dsh-pet 0.3.7；适配代码 MIT，素材允许开源使用、禁止商用，静态帧不适用 MIT。完整说明见 <a href="/legal/notices#article-5">《其他声明》开源组件与致谢</a>。</p>
+          </details>
         </fieldset>
       </div></details>
       <button class="icon-button menu-toggle" data-menu-toggle aria-label="主导航菜单" aria-expanded="false" aria-controls="mobile-nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 8h16M4 16h16"/></svg></button>
@@ -39,6 +43,7 @@ const path = Astro.url.pathname.startsWith('/article-shell') ? '/blog' : Astro.u
   .pet-settings legend { padding: 0 8px 0 0; font-size: 13px; color: var(--ink); }
   .pet-settings small { display: block; margin-top: 12px; line-height: 1.6; }.pet-settings a { text-decoration: underline; overflow-wrap: anywhere; }
   .pet-settings .pet-size { grid-template-columns: 1fr auto; margin-block: 12px; }.pet-size input { grid-column: 1 / -1; width: 100%; min-height: 32px; accent-color: var(--accent); }
+  .pet-notice { margin-top: 8px; font-size: 12px; }.pet-notice summary { width: auto; height: auto; display: flex; justify-content: flex-start; gap: 6px; cursor: pointer; }.pet-notice p { margin-block: 8px; }
   .pet-settings button { min-height: 44px; padding: 8px 12px; background: var(--soft); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; }
   .pet-settings :disabled { opacity: .5; cursor: not-allowed; }
   @media(max-width: 900px) { .desktop-nav { gap: 20px; }.desktop-nav small { display: none; } }

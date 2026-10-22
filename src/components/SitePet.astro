@@ -13,30 +13,26 @@ const config = petConfig({ local: process.env.SITE_PET_LOCAL === '1', ui: import
         <video data-pet-video muted playsinline preload="none" disablepictureinpicture hidden></video>
       </span>
     </button>
-    <button type="button" class="pet-drag" data-pet-drag aria-label="拖动站宠" title="拖动站宠（方向键移动，Shift + 方向键加速）" aria-describedby="pet-controls-help" hidden><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2 14 14 2v12Z"/></svg></button>
+    <button type="button" class="pet-drag" data-pet-drag aria-label="拖动站宠" title="拖动站宠（方向键移动，Shift + 方向键加速）" aria-describedby="pet-controls-help" hidden><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M14 2 2 6.5 9 13.5Z"/></svg></button>
     <button type="button" class="pet-collapse" data-pet-collapse aria-label="收起为悬浮球" title="收起为悬浮球（Escape）" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>
+    <button type="button" class="pet-info-btn" data-pet-info aria-label="站宠说明与来源" aria-expanded="false" aria-controls="pet-info-bubble" hidden><span aria-hidden="true">i</span></button>
+    <div class="pet-bubble" id="pet-info-bubble" data-pet-bubble role="dialog" aria-modal="false" aria-labelledby="pet-info-title" hidden>
+      <p class="pet-bubble-title" id="pet-info-title"><strong>站宠说明与来源</strong></p>
+      <p>形象原型：<a href="https://space.bilibili.com/4456176" target="_blank" rel="noopener noreferrer">@上善无形</a>、<a href="https://space.bilibili.com/4168597" target="_blank" rel="noopener noreferrer">@ZipZipPipe</a>、<a href="https://space.bilibili.com/23315338" target="_blank" rel="noopener noreferrer">@这个刀子真甜</a>。同人二创，CC BY-NC-SA 4.0；与 DeepSeek 官方无关，非合作、非商用。</p>
+      <p>动画来自 <a href="https://github.com/PC2005-cloud/dsh-pet" target="_blank" rel="noopener noreferrer">PC2005-cloud / dsh-pet</a>（0.3.7）；适配代码 MIT，素材禁止商用。<a href="/legal/notices#article-5">完整说明</a></p>
+      <button type="button" class="pet-bubble-close" data-pet-bubble-close aria-label="关闭说明">×</button>
+    </div>
   </div>
-  <div class="shell pet-info">
-    <details id="pet-attribution">
-      <summary>站宠说明与来源</summary>
-      <p>形象与同人二创声明（按提供的原型署名信息整理）：鲸鱼娘形象原型：<a href="https://space.bilibili.com/4456176" target="_blank" rel="noopener noreferrer">@上善无形</a>；女仆版／客串原型：<a href="https://space.bilibili.com/4168597" target="_blank" rel="noopener noreferrer">@ZipZipPipe</a>；Q版原型：<a href="https://space.bilibili.com/23315338" target="_blank" rel="noopener noreferrer">@这个刀子真甜</a>。</p>
-      <p>同人二创作品，与 DeepSeek 官方无关，非合作、非商用。形象与同人二创声明遵循 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 4.0（署名—非商业性使用—相同方式共享）</a>；不改变代码、全站内容或上游素材的许可，也不代表已获原型作者或官方授权。</p>
-      <p>代码与动画来源：动画及同源衍生静态帧、头像来自 PC2005-cloud 的 <a href="https://github.com/PC2005-cloud/dsh-pet" target="_blank" rel="noopener noreferrer">https://github.com/PC2005-cloud/dsh-pet</a>（0.3.7）。站宠适配代码 MIT；动画等素材仍须遵守 dsh-pet 上游素材条款：允许开源使用、禁止商用，静态图不是本站原创，也不适用代码 MIT 授权。本站为个人非商业适配。</p>
-      <p id="pet-controls-help">拖动悬浮球或角色右上角的小三角可调整位置；点击球展开，角色主体仅点击互动，三角下方箭头收起。聚焦球或小三角后用方向键移动 10px，Shift + 方向键移动 40px，Escape 收起。外观设置中可关闭、调整角色大小或重置位置。</p><p>桌面新用户在入场结束、load 后空闲延迟展开；手机和平板默认静态球，展开前不请求视频。减少动画或关闭动画时使用静态图。Safari 默认静态，视频透明效果未经真机验证。可选动画按每次 fetch 预占会话自动 3 MiB、总计 8 MiB，核心不计，失败不退；页内 blob 命中免费，HTTP 缓存仍扣额度，不是实际传输流量硬上限。布局偏好保存于 localStorage，会话预算保存于 sessionStorage。</p>
-    </details>
-    {config.enabled ? <><button type="button" data-pet-toggle aria-pressed="false" hidden>显示站宠</button><button type="button" data-pet-close>隐藏站宠</button></> : <p class="muted">站宠视频未配置，当前仅显示来源说明。</p>}
-    <span data-pet-status role="status" aria-live="polite"></span>
-  </div>
+  <span id="pet-controls-help" class="pet-sr">拖动悬浮球或右上角小三角可调整位置；聚焦后用方向键移动 10px，Shift + 方向键移动 40px，Escape 收起。</span>
+  <span class="pet-sr" data-pet-status role="status" aria-live="polite"></span>
 </aside>
 <script>import { initPet } from '../lib/pet/runtime'; initPet();</script>
 <style>
   [hidden] { display: none !important; }
   .pet-safe { position: fixed; visibility: hidden; pointer-events: none; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
-  .pet-info { padding-block: 8px 22px; color: var(--muted); font-size: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
-  .pet-info details { max-width: 70ch; }.pet-info summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }.pet-info p { margin-block: 8px; }.pet-info a { text-decoration: underline; overflow-wrap: anywhere; }
-  .pet-info button { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); min-height: 44px; cursor: pointer; padding: 8px 12px; }
+  .pet-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
   .pet-stage { position: fixed; z-index: 4; width: 0; height: 0; pointer-events: none; }
-  .pet-ball, .pet-touch, .pet-drag, .pet-collapse { position: absolute; padding: 0; color: var(--ink); pointer-events: auto; user-select: none; -webkit-user-select: none; }
+  .pet-ball, .pet-touch, .pet-drag, .pet-collapse, .pet-info-btn { position: absolute; padding: 0; color: var(--ink); pointer-events: auto; user-select: none; -webkit-user-select: none; }
   .pet-ball, .pet-drag { cursor: grab; touch-action: none; }
   .pet-ball { width: var(--pet-ball-size, 48px); height: var(--pet-ball-size, 48px); left: calc(var(--pet-ball-size, 48px) / -2); top: calc(-1 * var(--pet-ball-size, 48px)); border-radius: 50%; border: 1px solid var(--line); background: var(--surface); overflow: hidden; }
   .pet-ball img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
@@ -48,7 +44,13 @@ const config = petConfig({ local: process.env.SITE_PET_LOCAL === '1', ui: import
   .pet-drag svg { width: 16px; height: 16px; filter: drop-shadow(0 0 1px var(--surface)); }
   .pet-collapse { top: calc(-280px * var(--pet-scale) + 48px); border-radius: 50%; background: var(--surface); border: 1px solid var(--line); cursor: pointer; touch-action: manipulation; }
   .pet-collapse svg { width: 22px; height: 22px; }
-  .pet-ball:focus-visible, .pet-touch:focus-visible, .pet-drag:focus-visible, .pet-collapse:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .pet-info-btn { left: -12px; top: 4px; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 600 12px/1 ui-sans-serif, system-ui, sans-serif; display: grid; place-items: center; pointer-events: auto; cursor: pointer; padding: 0; }
+  .pet-bubble { position: absolute; width: min(260px, calc(100vw - 16px)); background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 24px rgb(0 0 0 / .12); padding: 12px 32px 12px 12px; font-size: 12px; line-height: 1.55; pointer-events: auto; z-index: 5; }
+  .pet-bubble p { margin: 0 0 8px; }
+  .pet-bubble p:last-of-type { margin-bottom: 0; }
+  .pet-bubble a { text-decoration: underline; overflow-wrap: anywhere; }
+  .pet-bubble-close { position: absolute; top: 2px; right: 2px; width: 28px; height: 28px; border: 0; background: transparent; color: var(--ink); font-size: 18px; line-height: 1; cursor: pointer; border-radius: 50%; }
+  .pet-ball:focus-visible, .pet-touch:focus-visible, .pet-drag:focus-visible, .pet-collapse:focus-visible, .pet-info-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   [data-dragging] .pet-ball, [data-dragging] .pet-drag { cursor: grabbing; }
   .pet-touch[data-feedback] { outline: 1px dotted var(--accent); outline-offset: 2px; }
   @media print { .site-pet { display: none !important; } }

@@ -29,9 +29,12 @@ class ElementStub extends EventTarget {
   releasePointerCapture(id: number) { this.captured.delete(id); }
   textContent = '';
   offsetWidth = 156;
+  focused = 0;
   attributes = new Map<string, string>();
   setAttribute(key: string, value: string) { this.attributes.set(key, value); }
-  focus() {}
+  focus() { this.focused++; }
+  contains(node: unknown) { return node === this; }
+  getBoundingClientRect() { return { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0, toJSON() {} }; }
   click(detail = 1) { const event = new Event('click', { cancelable: true }); Object.assign(event, { detail }); this.dispatchEvent(event); }
 }
 class VideoStub extends ElementStub {
@@ -62,19 +65,21 @@ function browser() {
   const idles = new Map<number, () => void>();
   const timeout = (callback: () => void, ms = 0) => { const id = ++handle; timers.set(id, { callback, ms }); return id; };
   const clear = (id: number) => { timers.delete(id); };
-  const host = new ElementStub(), stage = new ElementStub(), toggle = new ElementStub();
-  const close = new ElementStub(), touch = new ElementStub(), placeholder = new ElementStub(), status = new ElementStub();
+  const host = new ElementStub(), stage = new ElementStub();
+  const touch = new ElementStub(), placeholder = new ElementStub(), status = new ElementStub();
   const ball = new ElementStub(), dragHandle = new ElementStub(), collapse = new ElementStub(), visible = new ElementStub(), autoWalk = new ElementStub(), size = new ElementStub(), sizeValue = new ElementStub(), reset = new ElementStub(), settingsStatus = new ElementStub();
+  const infoBtn = new ElementStub(), bubble = new ElementStub(), bubbleClose = new ElementStub();
   const videos = [new VideoStub(), new VideoStub()];
   const root = new ElementStub(); root.dataset.motion = 'on'; root.dataset.intro = 'done';
-  const elements: Record<string, ElementStub> = { '[data-pet-stage]': stage, '[data-pet-toggle]': toggle,
-    '[data-pet-close]': close, '[data-pet-touch]': touch, '[data-pet-placeholder]': placeholder, '[data-pet-status]': status,
+  const elements: Record<string, ElementStub> = { '[data-pet-stage]': stage,
+    '[data-pet-touch]': touch, '[data-pet-placeholder]': placeholder, '[data-pet-status]': status,
     '[data-pet-ball]': ball, '[data-pet-drag]': dragHandle, '[data-pet-collapse]': collapse, '[data-pet-visible]': visible, '[data-pet-autowalk]': autoWalk,
-    '[data-pet-size]': size, '[data-pet-size-value]': sizeValue, '[data-pet-reset]': reset, '[data-pet-settings-status]': settingsStatus };
+    '[data-pet-size]': size, '[data-pet-size-value]': sizeValue, '[data-pet-reset]': reset, '[data-pet-settings-status]': settingsStatus,
+    '[data-pet-info]': infoBtn, '[data-pet-bubble]': bubble, '[data-pet-bubble-close]': bubbleClose };
   Object.assign(host, { querySelector: (selector: string) => elements[selector], querySelectorAll: () => videos });
   host.dataset.config = JSON.stringify({ enabled: true, urls: Object.fromEntries(Object.keys(assets).map((id) => [id, `https://pet.example.test/v1/${id}.webm`])) });
   const document = Object.assign(new EventTarget(), { hidden: false, readyState: 'complete', documentElement: root,
-    querySelector: (selector: string) => selector === '[data-site-pet]' ? host : elements[selector], querySelectorAll: () => [toggle] });
+    querySelector: (selector: string) => selector === '[data-site-pet]' ? host : elements[selector], querySelectorAll: () => [] });
   const window = Object.assign(new EventTarget(), { setTimeout: timeout, clearTimeout: clear, cancelIdleCallback: (id: number) => { idles.delete(id); } });
   const local = new Memory(), session = new Memory(); local.setItem(PREFERENCE_KEY, 'off');
   const queries = new Map<string, EventTarget & { matches: boolean }>();
@@ -113,8 +118,9 @@ function browser() {
     const event = new Event(name); Object.assign(event, data); window.dispatchEvent(event);
   }
   return {
-    host, stage, toggle, close, touch, placeholder, status, videos, document, root, timers, raf, requests, blobs, session, local,
+    host, stage, touch, placeholder, status, videos, document, root, timers, raf, requests, blobs, session, local,
     ball, dragHandle, collapse, visible, autoWalk, size, sizeValue, reset, queries,
+    infoBtn, bubble, bubbleClose,
     event,
     idles,
     useIdle() { Object.assign(window, { requestIdleCallback: (callback: () => void) => { const id = ++handle; idles.set(id, callback); return id; } }); },
@@ -134,8 +140,8 @@ function browser() {
       element.dispatchEvent(event);
     },
     start: initPet,
-    async open() { toggle.click(); await settle(); },
-    async shut() { close.click(); await settle(); },
+    async open() { visible.checked = true; visible.dispatchEvent(new Event('change')); await settle(); },
+    async shut() { visible.checked = false; visible.dispatchEvent(new Event('change')); await settle(); },
     async preferences() { event('preferenceschange'); await settle(); },
     preferencesNow() { event('preferenceschange'); },
     async hide(value: boolean) { document.hidden = value; document.dispatchEvent(new Event('visibilitychange')); await settle(); },
@@ -240,7 +246,7 @@ test('controls: unconfigured pet leaves handle hidden and performs no requests',
   const b = browser();
   try {
     b.host.dataset.config = JSON.stringify({ enabled: false }); b.start(); await settle();
-    assert.equal(b.dragHandle.hidden, true); assert.equal(b.stage.hidden, true); assert.equal(b.requests.length, 0);
+    assert.equal(b.dragHandle.hidden, true); assert.equal(b.stage.hidden, true); assert.equal(b.infoBtn.hidden, true); assert.equal(b.bubble.hidden, true); assert.equal(b.requests.length, 0);
   } finally { b.restore(); }
 });
 
@@ -629,4 +635,50 @@ test('real initPet: leftward walk uses unmirrored source and keeps dragged y', a
   await b.walk(); const video = b.activeVideo()!;
   assert.equal(video.style.transform, ''); video.currentTime = 7; b.stepRAF();
   assert.ok(Number.parseFloat(b.stage.style.left) < x); assert.equal(b.stage.style.top, y);
+}));
+
+test('real initPet: info button appears only under the collapsed ball and toggles an accessible bubble', async () => usingBrowser(async (b) => {
+  assert.equal(b.infoBtn.hidden, true);
+  await b.open();
+  assert.equal(b.infoBtn.hidden, true, 'the expanded presentation keeps the info button hidden');
+  assert.equal(b.bubble.hidden, true);
+  b.collapse.click(); await settle();
+  assert.equal(b.ball.hidden, false); assert.equal(b.infoBtn.hidden, false);
+  assert.equal(b.bubble.hidden, true); assert.equal(b.infoBtn.attributes.get('aria-expanded'), 'false');
+  b.infoBtn.click(); await settle();
+  assert.equal(b.bubble.hidden, false); assert.equal(b.infoBtn.attributes.get('aria-expanded'), 'true');
+  assert.ok(b.bubbleClose.focused > 0, 'opening moves focus into the bubble');
+  assert.equal(b.bubble.style.left, '8px'); assert.equal(b.bubble.style.top, '8px');
+  b.infoBtn.click(); await settle();
+  assert.equal(b.bubble.hidden, true); assert.equal(b.infoBtn.attributes.get('aria-expanded'), 'false');
+  assert.equal(b.requests.length, 2);
+}));
+test('real initPet: Escape, close button, outside click and drag dismiss the bubble and return focus', async () => usingBrowser(async (b) => {
+  await b.open(); b.collapse.click(); await settle(); b.infoBtn.click(); await settle();
+  assert.equal(b.bubble.hidden, false);
+  const escape = Object.assign(new Event('keydown', { cancelable: true }), { key: 'Escape' });
+  b.document.dispatchEvent(escape); await settle();
+  assert.equal(escape.defaultPrevented, true); assert.equal(b.bubble.hidden, true);
+  assert.equal(b.infoBtn.attributes.get('aria-expanded'), 'false'); assert.equal(b.ball.hidden, false);
+  assert.ok(b.infoBtn.focused > 0, 'Escape returns focus to the info button');
+  const before = b.infoBtn.focused;
+  b.infoBtn.click(); await settle(); b.bubbleClose.click(); await settle();
+  assert.equal(b.bubble.hidden, true); assert.ok(b.infoBtn.focused > before, 'the close button returns focus');
+  b.infoBtn.click(); await settle(); assert.equal(b.bubble.hidden, false);
+  b.document.dispatchEvent(new Event('pointerdown', { cancelable: true })); await settle();
+  assert.equal(b.bubble.hidden, true);
+  b.infoBtn.click(); await settle(); assert.equal(b.bubble.hidden, false);
+  b.pointer(b.ball, 'pointerdown'); b.pointer(b.ball, 'pointerup'); await settle();
+  assert.equal(b.bubble.hidden, true, 'dragging the ball dismisses the bubble');
+  b.infoBtn.click(); await settle(); assert.equal(b.bubble.hidden, false);
+  b.ball.click(); await settle();
+  assert.equal(b.bubble.hidden, true, 'expanding dismisses the bubble');
+  assert.equal(b.infoBtn.hidden, true); assert.equal(b.infoBtn.attributes.get('aria-expanded'), 'false');
+}));
+test('real initPet: closing the pet hides the info button and dismisses its bubble', async () => usingBrowser(async (b) => {
+  await b.open(); b.collapse.click(); await settle(); b.infoBtn.click(); await settle();
+  assert.equal(b.bubble.hidden, false);
+  await b.shut();
+  assert.equal(b.infoBtn.hidden, true); assert.equal(b.bubble.hidden, true);
+  assert.equal(b.infoBtn.attributes.get('aria-expanded'), 'false');
 }));

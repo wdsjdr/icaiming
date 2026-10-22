@@ -81,6 +81,17 @@ test('shared feet anchor, reference actor height, canvas and toolbar bounds', ()
     assert.ok(small.bounds.maxY + small.scale * 5 <= 500 - 34 - 12);
   }
 });
+test('collapsed bounds reserve the info button space while the ball stays reachable', () => {
+  for (const [width, height] of [[390, 120], [390, 844], [1200, 800], [72, 240], [24, 40]]) {
+    const v = { ...viewport, width, height };
+    const g = geometry(120, false, v);
+    const anchor = clampAnchor({ x: 9999, y: 9999 }, g.bounds);
+    assert.equal(g.expanded, false);
+    assert.ok(anchor.y - g.ballSize >= v.top + v.safeTop, `ball top stays visible at ${width}x${height}`);
+    assert.ok(anchor.y <= v.top + height - v.safeBottom);
+    if (v.height - v.safeTop - v.safeBottom - g.ballSize >= 30) assert.ok(anchor.y + 30 <= v.top + height - v.safeBottom, `info button fits under the ball at ${width}x${height}`);
+  }
+});
 test('walk plan prefers room, scales upstream distance, never runs against a wall', () => {
   const bounds = { minX: 50, maxX: 1000, minY: 100, maxY: 700 };
   const right = planWalk(60, bounds, 462, () => 1)!;
