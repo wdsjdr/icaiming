@@ -6,10 +6,11 @@
 
 ### 变更
 
+- 每日新闻图抓取改到北京 22:00（cron `0 14 * * *`），补抓改到 23:30（`30 15 * * *`）；上游在白天通常只回吐前一天的图，晚间抓取才能拿到当天新闻。09:00 的 cron 只保留 Epic 与模型榜，cron 触发器增至 5 条（免费计划上限）。
 - `/resources` 命名与说明修正：「数据榜单」改为「GitHub 趋势」，「热榜 · 前沿」改为「平台热榜」；榜单右侧不再显示无说明的 `1.00/0.72` 归一化分数，改为展示今日新增 star 数（条形仍表示相对榜首比例），并补充表头、来源与每栏导语。
 - `/resources` 新增「模型榜」页签：智能榜（每个基础模型取最强配置）与成本效率榜（默认只看智能 ≥ 中位数的模型），含价格-智能散点概览（横轴单任务价格、纵轴智能指数）与详情内“推理强度 × 每点智能价格”散点、搜索、效率前沿标记与详情抽屉（`?tab=models&model=` 深链）；数据来自 Artificial Analysis 免费档，聚合任务复用 `0 1 * * *` 时段。
 - `/daily` 布局修正：日历卡片顶部与左侧新闻图片卡片对齐（`--daily-head` 44px），月份切换按钮改为 32px 方块（此前 `.icon-button` 的作用域样式不作用于本页，按钮退化成竖条），并在页面头部补充「来源：UAPI ↗」外链。
-- 聚合 Worker 改为 4 条 Cron 触发器（`0 */6 * * *`、`0 1 * * *`、`30 1 * * *`、`0 5 * * *`），按表达式分派任务，未知表达式只记录日志；Epic 返回空列表时保留 R2 上一次结果。
+- 聚合 Worker 使用 5 条 Cron 触发器（`0 */6 * * *`、`0 1 * * *`、`30 1 * * *`、`0 14 * * *`、`30 15 * * *`），按表达式分派任务，未知表达式只记录日志；Epic 返回空列表时保留 R2 上一次结果。
 - 聚合 Worker `/run` 需 `Authorization: Bearer <RUN_TOKEN>`，未配置令牌返回 503、错误返回 401；必须指定 `?task=`（`rankings`、`hotboard`、`daily-news`、`epic`、`saying`），每次只执行一个任务。
 - 站点由 Cloudflare Pages 迁移为 Worker：`functions/` 的 12 个 Pages Function 合并为 `src/worker/index.ts` 路由加 `src/worker/handlers/`（api、blog、media、feeds），静态页面由 `[assets]` 绑定提供，`wrangler.toml` 的 `main`、`[assets]`、`[build]` 替代 `pages_build_output_dir`。
 - `pnpm dev` 与 `pnpm preview` 改用 `wrangler dev`，`pnpm dev` 通过 `--var LOCAL_DEV:true` 关闭本地缓存；`pnpm dev` 不再重复执行初始构建。
@@ -48,7 +49,7 @@
 - 新增 `/daily` 每日新闻日历：聚合 Worker 每日 09:00（北京）抓 `daily/news-image` 存入 `misc/daily-news/<date>.jpg`，月历可回看近 12 个月，超 365 天自动清理；新增 `/api/daily-news` 与 `/daily-image/[date]` 路由。
 - 发现页改为粘性分栏 Tab（精选收藏 / 资源下载 / 数据榜单 / 热榜 · 前沿），同一时间只显示一块，默认「热榜 · 前沿」，支持 `#hash` 深链与方向键切换；各面板首次激活才拉取数据；数据榜单默认展示 10 条并可展开。
 - 「限时免费」（Epic）从发现页移至 `/daily` 每日新闻下方。
-- Cron 触发器最终为 4 条（`0 */6 * * *`、`0 1 * * *`、`30 1 * * *`、`0 5 * * *`），在免费计划 5 个上限内并为后续数据源留出空间。
+- Cron 触发器最终为 5 条（`0 */6 * * *`、`0 1 * * *`、`30 1 * * *`、`0 14 * * *`、`30 15 * * *`），用满免费计划的 5 个上限。
 - 修正聚合数据归属：内容导入器不再上传或删除 `rankings/`、`misc/` 键（缺失时前端显示空状态），避免覆盖 Worker 写入的线上数据；GitHub Trending 抓取增加 12s 超时，避免单源卡住整批任务。
 - 内容发布到生产 R2：新增 `pnpm content:publish`（经 S3 API / `aws4fetch` 并行上传，按 `_local/manifest.json` 清理旧对象，不碰 `rankings/`、`misc/`）；无 S3 密钥时可回退用 `CLOUDFLARE_API_TOKEN` + wrangler。
 - **修正 R2 桶名**：`ic-aiming-content` → `icaiming-content`（`icaiming/` 与聚合 Worker 的 `wrangler.toml`、发布脚本默认值），此前命名不一致会导致生产读写与发布失败。

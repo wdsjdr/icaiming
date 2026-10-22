@@ -45,15 +45,16 @@ test('wrangler.toml cron triggers match the schedule map exactly', () => {
   assert.ok(block, 'crons not found in wrangler.toml');
   const crons = [...block[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual([...schedule.keys()].sort(), crons.sort());
-  assert.equal(crons.length, 4);
+  assert.equal(crons.length, 5);
 });
 
 test('each cron runs the intended tasks and every task is reachable by name', () => {
   const names = (cron: string) => schedule.get(cron)!.map((task) => task.name);
   assert.deepEqual(names('0 */6 * * *'), ['runRankings', 'runHotboard']);
-  assert.deepEqual(names('0 1 * * *'), ['runDailyNews', 'runEpic', 'runAaModels']);
+  assert.deepEqual(names('0 1 * * *'), ['runEpic', 'runAaModels']);
   assert.deepEqual(names('30 1 * * *'), ['runSaying']);
-  assert.deepEqual(names('0 5 * * *'), ['runDailyNews']);
+  assert.deepEqual(names('0 14 * * *'), ['runDailyNews']);
+  assert.deepEqual(names('30 15 * * *'), ['runDailyNews']);
   assert.deepEqual([...tasksByName.keys()].sort(), ['aa-models', 'daily-news', 'epic', 'hotboard', 'rankings', 'saying']);
 });
 
@@ -69,7 +70,7 @@ test('unknown cron expression runs nothing and touches no storage', async () => 
 test('known cron schedules its tasks through waitUntil', async () => {
   const { pending, ctx } = makeCtx();
   await withFetch(() => new Response('nope', { status: 500 }), async () => {
-    await worker.scheduled({ cron: '0 5 * * *', scheduledTime: Date.now(), noRetry() {} } as unknown as ScheduledController, makeEnv(), ctx);
+    await worker.scheduled({ cron: '0 14 * * *', scheduledTime: Date.now(), noRetry() {} } as unknown as ScheduledController, makeEnv(), ctx);
     await Promise.all(pending);
   });
   assert.equal(pending.length, 1);

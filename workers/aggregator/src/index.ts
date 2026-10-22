@@ -7,9 +7,10 @@ export type Task = (env: Env) => Promise<TaskResult>;
 // (enforced by tests/aggregator-schedule.test.ts). Times are UTC.
 export const schedule = new Map<string, Task[]>([
   ['0 */6 * * *', [runRankings, runHotboard]],
-  ['0 1 * * *', [runDailyNews, runEpic, runAaModels]],
+  ['0 1 * * *', [runEpic, runAaModels]],
   ['30 1 * * *', [runSaying]],
-  ['0 5 * * *', [runDailyNews]], // daily-news compensation: skipped when today's image already exists
+  ['0 14 * * *', [runDailyNews]], // 22:00 Beijing: earlier calls get yesterday's image from upstream
+  ['30 15 * * *', [runDailyNews]], // daily-news compensation: skipped when today's image already exists
 ]);
 
 // Names accepted by GET /run?task=<name>.
