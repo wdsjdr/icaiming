@@ -121,7 +121,7 @@ test('resource-domain docs distinguish direct object metadata and CORS from Work
   for (const path of ['README.md', 'docs/site-pet.md', 'THIRD_PARTY_NOTICES.md']) {
     const text = await readFile(new URL(`../${path}`, import.meta.url), 'utf8');
     assert.match(text, /https:\/\/assets\.icaiming\.cn\/assets\/pet\/v0\.3\.7-web-[1-9]\d*/);
-    for (const required of ['https://icaiming.cn', 'video/webm', 'immutable', 'CORS', '十五 key', 'content:publish', '旧版', '私人对象']) {
+    for (const required of ['https://www.icaiming.cn', 'video/webm', 'immutable', 'CORS', '十五 key', 'content:publish', '旧版', '私人对象']) {
       assert.ok(text.includes(required), `${path}: ${required}`);
     }
     assert.ok(!text.includes('https://assets.icaiming.cn/media/'), `${path}: direct bucket paths must not include Worker /media/`);

@@ -173,12 +173,12 @@ if ($LASTEXITCODE -ne 0) { throw '上传失败，停止发布' }
 
 `assets.icaiming.cn` 绕过站点媒体 Worker，**不能依赖 Worker 覆写 MIME/缓存头**。十五对象自身必须有 `Content-Type: video/webm` 及 `Cache-Control: public, max-age=31536000, immutable`，GET/HEAD 的长度和 ETag 正确，正文 bytes/SHA-256 对应清单。完整发布器的 MD5 相同跳过逻辑不会修复错误元数据，须由后续定点 PUT/元数据维护流程显式设置并实测。本轮没有执行上传或元数据修改。
 
-从页面 Origin **`https://icaiming.cn`** 跨域 fetch 需要现桶 CORS；待所有者审核的最小规则示例（本轮未应用）：
+从页面 Origin **`https://www.icaiming.cn`** 跨域 fetch 需要现桶 CORS；待所有者审核的最小规则示例（本轮未应用）：
 
 ```json
 [
   {
-    "AllowedOrigins": ["https://icaiming.cn"],
+    "AllowedOrigins": ["https://www.icaiming.cn"],
     "AllowedMethods": ["GET", "HEAD"],
     "ExposeHeaders": ["Content-Type", "Content-Length", "ETag"],
     "MaxAgeSeconds": 3600
@@ -186,7 +186,7 @@ if ($LASTEXITCODE -ne 0) { throw '上传失败，停止发布' }
 ]
 ```
 
-不要盲目允许 `*`；若还有其他站点 Origin，须逐个审核。curl 带 `Origin: https://icaiming.cn` 的 HEAD/GET 要核对 `Access-Control-Allow-Origin` 和暴露头，再在该真实站点浏览器确认 fetch 可读。没有 Origin 的 curl 成功不代表 CORS 通过。若缓存已存在，首次/重复 GET 的 CORS 都须正确，不承诺已经有 CDN HIT。
+不要盲目允许 `*`；若还有其他站点 Origin，须逐个审核。curl 带 `Origin: https://www.icaiming.cn` 的 HEAD/GET 要核对 `Access-Control-Allow-Origin` 和暴露头，再在该真实站点浏览器确认 fetch 可读。没有 Origin 的 curl 成功不代表 CORS 通过。若缓存已存在，首次/重复 GET 的 CORS 都须正确，不承诺已经有 CDN HIT。
 
 **公开域暴露的是该桶中可被已知 key 直接读取的对象，不仅十五个 pet URL。** CORS 不是访问控制，不能阻止非浏览器客户端读取，hash 也不是密码。不读取/探测私人对象；所有者须确认桶中没有不宜公开内容，若存在则先另行隔离或访问控制评估，不把开启域名当作只公开 pet 前缀。本轮未枚举或读取远端对象、未确认该桶隐私边界。
 
@@ -194,8 +194,8 @@ if ($LASTEXITCODE -ne 0) { throw '上传失败，停止发布' }
 
 ```powershell
 $Url = "https://assets.icaiming.cn/assets/pet/v0.3.7-web-2/$($Item.Sha256)/$($Item.Id).webm"
-curl.exe --fail --silent --show-error --head -H 'Origin: https://icaiming.cn' "$Url"
-# GET/hash 检查同下文，但加 -H 'Origin: https://icaiming.cn'，并在真实浏览器复测。
+curl.exe --fail --silent --show-error --head -H 'Origin: https://www.icaiming.cn' "$Url"
+# GET/hash 检查同下文，但加 -H 'Origin: https://www.icaiming.cn'，并在真实浏览器复测。
 ```
 
 `src/worker/handlers/media.ts` 对精确的 `v0.3.7-web-2/<hash>/<allowlisted-id>.webm` 路径，在对象元数据之后设置 `Content-Type: video/webm`、`Content-Length`、`ETag`、`Cache-Control: public, max-age=31536000, immutable`；`LOCAL_DEV=true` 改为 `no-store`。HEAD 使用 `bucket.head` 不读取正文；GET/HEAD 支持 If-None-Match（匹配时 304，无正文）。其他媒体保留既有 MIME、缓存与附件行为，原路径安全白名单不放宽。不匹配的 pet 路径不获得这些专属头。
@@ -308,7 +308,7 @@ $ConfigHtml | Select-Object -First 2   # 人工检查 data-config，十五个 UR
 - 根因是只按完整且大小写精确的 WebM 路径匹配，后续 rename 仍能移动目录。现在同步 guard 保护整个 `assets/pet` 树及 `assets` 祖先（统一斜杠、ASCII 大小写不敏感，拒绝 Windows 尾点别名），DELETE 专用 `moveMediaToTrash` 对源路径逐段 lstat，拒绝目录、symlink/junction，并拒绝链接回收站父路径。普通文件删除及原回收站恢复保留，未扩展上传能力或改变列表/读取。
 - 首次修复回归发现测试错误假定当前 Node 会解析 Windows 尾点别名（实际为 ENOENT），已纠正测试：真实大小写别名验证同一文件，尾点拼写不依赖文件系统解析能力，仍必须被 guard 拒绝。
 - 最终运行 `pnpm exec tsx --test tests/pet*.test.ts tests/worker-media.test.ts tests/content-mime.test.ts tests/admin.test.ts tests/content.test.ts`：**138 tests、138 pass、0 fail**；`pnpm check`：**0 errors、0 warnings、1 个既有 returnValue deprecated hint**。包含真实临时目录/junction、入口调用保护、普通文件删除/恢复与资源域配置/文档回归；不是线上删除或真实 CORS 验证。
-- 文档补充可选 `https://assets.icaiming.cn/assets/pet/v0.3.7-web-2`，直连不经 Worker，需对象自身 video/webm/immutable、Origin `https://icaiming.cn` 的 CORS 以及桶公开范围审核。不更改默认 production base、凭据、binding 或云配置，不读取私人对象。
+- 文档补充可选 `https://assets.icaiming.cn/assets/pet/v0.3.7-web-2`，直连不经 Worker，需对象自身 video/webm/immutable、Origin `https://www.icaiming.cn` 的 CORS 以及桶公开范围审核。不更改默认 production base、凭据、binding 或云配置，不读取私人对象。
 - 本轮未运行 build/dev、进程停止、远端命令、上传/部署、commit/push；保留所有用户无关工作、七 key 定点 PUT 约束及旧版回滚文件。
 
 ### 本轮单桶本地准备与媒体回归（2026-10-21）
@@ -351,7 +351,7 @@ $ConfigHtml | Select-Object -First 2   # 人工检查 data-config，十五个 UR
 
 - [ ] 许可/开源/非商用范围及原型、素材实际许可经权利人／原作者确认；所有介绍、展示、分发页面保留 PC2005-cloud、**https://github.com/PC2005-cloud/dsh-pet**、三位原型作者及主页链接、CC 形象与同人二创声明及上游素材条款，MIT 全文随代码分发保留；声明不替代授权。
 - [ ] CI Node/pnpm 版本统一并复测；现有单桶、最小权限到位；本次只新增八 key 定点 PUT（另有 7 个已核验旧 key 不重传），未来镜像源包含完整内容及所有回滚版本。
-- [ ] 十五对象 key、字节数、SHA-256、MIME、HTTP 头正确；GET/HEAD 长度/ETag 一致、条件请求 304、所选路径 fetch 与浏览器缓存通过；直连额外核对对象自身元数据、Origin `https://icaiming.cn` 的 CORS 和桶公开范围，不读取私人对象；不把 HTTP 缓存当作 CDN 已验证；大陆直连/弱网通过。
+- [ ] 十五对象 key、字节数、SHA-256、MIME、HTTP 头正确；GET/HEAD 长度/ETag 一致、条件请求 304、所选路径 fetch 与浏览器缓存通过；直连额外核对对象自身元数据、Origin `https://www.icaiming.cn` 的 CORS 和桶公开范围，不读取私人对象；不把 HTTP 缓存当作 CDN 已验证；大陆直连/弱网通过。
 - [ ] 正式产物不带 `SITE_PET_LOCAL=1`、本地 URL 或视频实体；十五 URL 都是预期资源域与不可变版本；未配置版本确实关闭。
 - [ ] 桌面 load/空闲延后只加载两核心，不全量下载十五段；入场动画期间无媒体；移动端默认不请求、手动可开；点击快速反馈且不并发预取候选。
 - [ ] 网络/解码失败保留当前可用动画或静态占位；失败预占不退、冷却/三次失败上限正确；长时间真实计时触发自动可选，重复跨页直到预算实际耗尽不再 fetch。

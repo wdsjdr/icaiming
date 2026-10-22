@@ -1,6 +1,6 @@
-# robots.txt for IC Aiming (https://icaiming.cn)
+# robots.txt for IC Aiming (https://www.icaiming.cn)
 # 爬虫政策：搜索索引与 AI 检索类抓取允许；AI 训练类抓取禁止。
-# 说明见 https://icaiming.cn/legal/notices#article-2
+# 说明见 https://www.icaiming.cn/legal/notices#article-2
 #
 # Content-Signal: search=yes,ai-train=no
 #
@@ -107,4 +107,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://icaiming.cn/sitemap.xml
+Sitemap: https://www.icaiming.cn/sitemap.xml

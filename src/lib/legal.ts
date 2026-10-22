@@ -16,7 +16,7 @@ export const LEGAL = {
   effective: '2026-10-13',
   updated: '2026-10-21',
   email: '3043927908@qq.com',
-  site: 'https://icaiming.cn',
+  site: 'https://www.icaiming.cn',
   copyrightStart: 2026,
   operator: { zh: 'IC Aiming 站长（个人开发者）', en: 'the webmaster of IC Aiming (an individual developer)' },
 } as const;
@@ -66,8 +66,8 @@ const terms = build('terms', 'A',
   [
     article('总则与协议接受', 'General Provisions and Acceptance',
       clause(
-        '本协议是您与 IC Aiming 网站（域名：icaiming.cn，以下简称“本站”）的运营者 IC Aiming 站长（个人开发者，以下简称“运营者”或“我们”）之间，就您访问和使用本站所订立的协议。',
-        'These Terms of Service (the “Terms”) are an agreement between you and the webmaster of IC Aiming, an individual developer (the “Operator”, “we” or “us”), who operates the IC Aiming website at icaiming.cn (the “Site”). They govern your access to and use of the Site.'),
+        '本协议是您与 IC Aiming 网站（域名：www.icaiming.cn，以下简称“本站”）的运营者 IC Aiming 站长（个人开发者，以下简称“运营者”或“我们”）之间，就您访问和使用本站所订立的协议。',
+        'These Terms of Service (the “Terms”) are an agreement between you and the webmaster of IC Aiming, an individual developer (the “Operator”, “we” or “us”), who operates the IC Aiming website at www.icaiming.cn (the “Site”). They govern your access to and use of the Site.'),
       clause(
         '本站为个人非商业性质站点，由个人开发者独立运营，不涉及商品交易、付费服务、广告投放或其他经营性活动。',
         'The Site is a personal, non-commercial website run independently by an individual developer. It does not sell goods, offer paid services, serve advertising or carry out any other commercial activity.'),
@@ -224,8 +224,8 @@ const privacy = build('privacy', 'B',
   [
     article('引言与适用范围', 'Introduction and Scope',
       clause(
-        '本政策说明 IC Aiming（icaiming.cn，以下称“本站”）如何收集、使用、存储、共享和保护您的个人信息，以及您享有的相关权利。',
-        'This Policy explains how IC Aiming (icaiming.cn, the “Site”) collects, uses, stores, shares and protects your personal information, and the rights you have in relation to it.'),
+        '本政策说明 IC Aiming（www.icaiming.cn，以下称“本站”）如何收集、使用、存储、共享和保护您的个人信息，以及您享有的相关权利。',
+        'This Policy explains how IC Aiming (www.icaiming.cn, the “Site”) collects, uses, stores, shares and protects your personal information, and the rights you have in relation to it.'),
       clause(
         '我们将按照《中华人民共和国个人信息保护法》《中华人民共和国网络安全法》《中华人民共和国数据安全法》以及（在适用情况下）欧盟《通用数据保护条例》（GDPR）等适用法律法规的要求处理个人信息。',
         'We handle personal information in accordance with applicable laws and regulations, including the Personal Information Protection Law (PIPL), the Cybersecurity Law and the Data Security Law of the People’s Republic of China and, where applicable, the EU General Data Protection Regulation (GDPR).'),
@@ -437,8 +437,8 @@ const disclaimer = build('disclaimer', 'C',
   [
     article('总则', 'General',
       clause(
-        '本声明适用于您对 IC Aiming（icaiming.cn，以下称“本站”）的访问与使用，是[《用户协议》](/legal/terms)的组成部分。',
-        'This Disclaimer applies to your access to and use of IC Aiming (icaiming.cn, the “Site”) and forms part of the [Terms of Service](/legal/terms).'),
+        '本声明适用于您对 IC Aiming（www.icaiming.cn，以下称“本站”）的访问与使用，是[《用户协议》](/legal/terms)的组成部分。',
+        'This Disclaimer applies to your access to and use of IC Aiming (www.icaiming.cn, the “Site”) and forms part of the [Terms of Service](/legal/terms).'),
       clause(
         '您使用本站即视为已阅读、理解并同意本声明。若您不同意，请停止使用本站。',
         'By using the Site, you confirm that you have read, understood and agree to this Disclaimer. If you do not agree, please stop using the Site.'),
@@ -627,7 +627,7 @@ const notices = build('notices', 'D',
     article('联系方式', 'Contact',
       clause('运营者：IC Aiming 站长（个人开发者）', 'Operator: the webmaster of IC Aiming (an individual developer)'),
       clause(`联系邮箱：${MAIL}`, `Email: ${MAIL}`),
-      clause('网站：[https://icaiming.cn](https://icaiming.cn)', 'Website: [https://icaiming.cn](https://icaiming.cn)'),
+      clause('网站：[https://www.icaiming.cn](https://www.icaiming.cn)', 'Website: [https://www.icaiming.cn](https://www.icaiming.cn)'),
     ),
   ]);
 
